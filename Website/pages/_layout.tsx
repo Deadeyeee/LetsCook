@@ -11,7 +11,7 @@ const AppRootPage = ({ children }: PropsWithChildren) => {
     const sideSidePanelOnly = ["/curated/badgers"];
     return (
         <VStack h="100vh">
-            {!hide.includes(pathname) && <Navigation />}
+            { <Navigation />}
             <HStack gap={0} h="100%" w="100%">
                 {!hide.includes(pathname) && !sideSidePanelOnly.includes(pathname) && <SideNav />}
                 <VStack pt={!hide.includes(pathname) && 50} h="100%" w="100%" sx={{ flex: 1, overflowY: "auto" }}>
