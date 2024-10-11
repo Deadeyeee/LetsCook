@@ -182,6 +182,7 @@ export function ReceivedAssetModal({
     let failed = assignment_data.status === 1;
     let checking = assignment_data.status === 0;
 
+    console.log("curated ", curated, " checking ", checking, " assignment_data ", assignment_data)
     let height = success ? style.succsss_h : failed ? style.failed_h : style.checking_h;
     let width = success ? style.success_w : failed ? style.failed_w : style.checking_w;
 

@@ -54,6 +54,7 @@ import BN from "bn.js";
 import formatPrice from "../../utils/formatPrice";
 import useTokenBalance from "../../hooks/data/useTokenBalance";
 import useCollection from "../../hooks/data/useCollection";
+import { useNftBalance } from "../../hooks/data/useNftBalance";
 
 export interface AssetWithMetadata {
     asset: AssetV1;
@@ -92,6 +93,7 @@ export const check_nft_balance = async (launch_key: PublicKey, wallet: WalletCon
 };
 
 const CollectionSwapPage = () => {
+    
     const wallet = useWallet();
     const { connection } = useConnection();
     const router = useRouter();
@@ -143,6 +145,8 @@ const CollectionSwapPage = () => {
 
     let isLoading = isClaimLoading || isMintRandomLoading || isWrapLoading || isMintLoading;
 
+    const { ownedAssets, nftBalance, loading, error, refetch } = useNftBalance(collection_key.current, wallet);
+    const { collection, error : collectionError } = useCollection({ pageName: typeof pageName === 'string' ? pageName : null });;
     const modalStyle: ReceivedAssetModalStyle = {
         check_image: "/images/cooks.jpeg",
         failed_image: "/images/cooks.jpeg",
@@ -177,18 +181,19 @@ const CollectionSwapPage = () => {
             check_initial_collection.current = false;
         }
 
-        let mint = mintData.get(launch.keys[CollectionKeys.MintAddress].toString());
+        let mint = mintData.get(collection.keys[CollectionKeys.MintAddress].toString());
 
         setTokenMint(mint);
 
+        console.log("mint", mint)
         let transfer_fee_config = getTransferFeeConfig(mint.mint);
         let input_fee =
-            transfer_fee_config === null ? 0 : Number(calculateFee(transfer_fee_config.newerTransferFee, BigInt(launch.swap_price)));
-        let swap_price = bignum_to_num(launch.swap_price);
+            transfer_fee_config === null ? 0 : Number(calculateFee(transfer_fee_config.newerTransferFee, BigInt(collection.swap_price)));
+        let swap_price = bignum_to_num(collection.swap_price);
 
         let input_amount = swap_price - input_fee;
 
-        let swap_fee = Math.floor((input_amount * launch.swap_fee) / 100 / 100);
+        let swap_fee = Math.floor((input_amount * collection.swap_fee) / 100 / 100);
 
         let output = input_amount - swap_fee;
 
@@ -197,13 +202,13 @@ const CollectionSwapPage = () => {
         let final_output = output - output_fee;
 
         //console.log("actual input amount was",  input_fee, input_amount,  "fee",  swap_fee,  "output", output, "output fee", output_fee, "final output", final_output);
-        setOutAmount(final_output / Math.pow(10, launch.token_decimals));
+        setOutAmount(final_output / Math.pow(10, collection.token_decimals));
 
         // console.log("launch price: ", bignum_to_num(launch.swap_price));
         // check relevant plugins
-        for (let i = 0; i < launch.plugins.length; i++) {
-            if (launch.plugins[i]["__kind"] === "Whitelist") {
-                let whitelist_key = launch.plugins[i]["key"];
+        for (let i = 0; i < collection.plugins.length; i++) {
+            if (collection.plugins[i]["__kind"] === "Whitelist") {
+                let whitelist_key = collection.plugins[i]["key"];
                 setWhiteList(mintData.get(whitelist_key.toString()));
             }
         }
@@ -235,6 +240,11 @@ const CollectionSwapPage = () => {
 
         mint_nft.current = false;
     }, [OraoRandoms]);
+
+    
+    useEffect(()=>{
+        refetch();
+    },[isWrapLoading, refetch])
 
     const check_launch_update = useCallback(async (result: any) => {
         //console.log("collection", result);
@@ -305,7 +315,7 @@ const CollectionSwapPage = () => {
                         asset_received.current = null;
                     }
 
-                    check_nft_balance(collection_key.current, wallet, setOwnedAssets, setNFTBalance);
+                    refetch();
                 } catch (error) {
                     asset_received.current = null;
                 }
@@ -315,7 +325,7 @@ const CollectionSwapPage = () => {
             mint_nft.current = true;
             setAssignedNFT(updated_data);
         },
-        [launch, assigned_nft, wallet, setOwnedAssets, setNFTBalance, openAssetModal],
+        [launch, assigned_nft, wallet, setOwnedAssets, refetch],
     );
 
     const get_assignment_data = useCallback(async () => {
@@ -399,10 +409,12 @@ const CollectionSwapPage = () => {
         }
 
         if (check_initial_nft_balance.current) {
-            check_nft_balance(collection_key.current, wallet, setOwnedAssets, setNFTBalance);
+            refetch();
             check_initial_nft_balance.current = false;
         }
-    }, [launch, wallet, get_assignment_data, setOwnedAssets, setNFTBalance]);
+    }, [launch, wallet, get_assignment_data, refetch]);
+
+    
 
     const [probString, setProbString] = useState<string>("");
     const [mintOnly, setMintOnly] = useState<boolean>(false);
@@ -473,18 +485,18 @@ const CollectionSwapPage = () => {
                         <Flex gap={lg ? 12 : 24} direction={lg ? "column" : "row"} alignItems={"center"}>
                             <VStack minW={220}>
                                 <Image
-                                    src={launch.collection_icon_url}
+                                    src={collection.collection_icon_url}
                                     width={180}
                                     height={180}
                                     alt="Image Frame"
                                     style={{ backgroundSize: "cover", borderRadius: 12 }}
                                 />
                                 <Text mt={1} mb={0} color="white" fontSize="x-large" fontFamily="ReemKufiRegular">
-                                    {launch.collection_name}
+                                    {collection.collection_name}
                                 </Text>
                                 <HStack spacing={2} align="start" justify="start">
                                     <Text m={0} color={"white"} fontFamily="ReemKufiRegular" fontSize={"large"}>
-                                        CA: {trimAddress(launch.keys[CollectionKeys.CollectionMint].toString())}
+                                        CA: {trimAddress(collection.keys[CollectionKeys.CollectionMint].toString())}
                                     </Text>
 
                                     <Tooltip label="Copy Contract Address" hasArrow fontSize="large" offset={[0, 10]}>
@@ -493,8 +505,8 @@ const CollectionSwapPage = () => {
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 navigator.clipboard.writeText(
-                                                    launch && launch.keys && launch.keys[CollectionKeys.CollectionMint]
-                                                        ? launch.keys[CollectionKeys.CollectionMint].toString()
+                                                    collection && collection.keys && collection.keys[CollectionKeys.CollectionMint]
+                                                        ? collection.keys[CollectionKeys.CollectionMint].toString()
                                                         : "",
                                                 );
                                             }}
@@ -505,7 +517,7 @@ const CollectionSwapPage = () => {
 
                                     <Tooltip label="View in explorer" hasArrow fontSize="large" offset={[0, 10]}>
                                         <Link
-                                            href={getSolscanLink(launch.keys[CollectionKeys.CollectionMint], "Collection")}
+                                            href={getSolscanLink(collection.keys[CollectionKeys.CollectionMint], "Collection")}
                                             target="_blank"
                                             onClick={(e) => e.stopPropagation()}
                                         >
@@ -518,7 +530,7 @@ const CollectionSwapPage = () => {
                                         </Link>
                                     </Tooltip>
                                 </HStack>
-                                <ShowExtensions extension_flag={launch.flags[LaunchFlags.Extensions]} />
+                                <ShowExtensions extension_flag={collection.flags[LaunchFlags.Extensions]} />
                             </VStack>
 
                             <VStack pb={white_list && 6}>
@@ -573,11 +585,11 @@ const CollectionSwapPage = () => {
                                     <HStack align="center" mb={4}>
                                         <Text m={0} color="white" fontSize="medium" fontWeight="semibold">
                                             {!isTokenToNFT
-                                                ? `1 NFT = ${formatPrice(out_amount, 3)} ${launch.token_symbol}`
+                                                ? `1 NFT = ${formatPrice(out_amount, 3)} ${collection.token_symbol}`
                                                 : `${formatPrice(
-                                                      bignum_to_num(launch.swap_price) / Math.pow(10, launch.token_decimals),
+                                                      bignum_to_num(collection.swap_price) / Math.pow(10, collection.token_decimals),
                                                       3,
-                                                  )} ${launch.token_symbol} = 1 NFT`}
+                                                  )} ${collection.token_symbol} = 1 NFT`}
                                         </Text>
                                         <Tooltip label="With 2% Transfer Tax" hasArrow fontSize="medium" offset={[0, 10]}>
                                             <Image width={20} height={20} src="/images/help.png" alt="Help" />
@@ -597,7 +609,7 @@ const CollectionSwapPage = () => {
                                                         {tokenBalance.toLocaleString()}
                                                     </Text>
                                                     <Text m={0} color={"white"} fontFamily="ReemKufiRegular" fontSize={"medium"}>
-                                                        {launch.token_symbol}
+                                                        {collection.token_symbol}
                                                     </Text>
                                                 </HStack>
                                             </HStack>
@@ -609,7 +621,7 @@ const CollectionSwapPage = () => {
                                                     value={
                                                         isTokenToNFT
                                                             ? formatPrice(
-                                                                  bignum_to_num(launch.swap_price) / Math.pow(10, launch.token_decimals),
+                                                                  bignum_to_num(collection.swap_price) / Math.pow(10, collection.token_decimals),
                                                                   3,
                                                               )
                                                             : formatPrice(out_amount, 3)
@@ -649,16 +661,16 @@ const CollectionSwapPage = () => {
                                         <VStack w="100%">
                                             <HStack w="100%" justifyContent="space-between">
                                                 <Text m={0} color={"white"} fontFamily="ReemKufiRegular" fontSize={"medium"} opacity={0.5}>
-                                                    {isTokenToNFT ? "To Receive" : "You're Paying"}
+                                                    {isTokenToNFT ? "To Receivse" : "You're Paying"}
                                                 </Text>
 
                                                 <HStack gap={1} opacity={0.5}>
                                                     <FaWallet size={12} color="white" />
                                                     <Text pl={0.5} m={0} color={"white"} fontFamily="ReemKufiRegular" fontSize={"medium"}>
-                                                        {nft_balance}
+                                                        {nftBalance}
                                                     </Text>
                                                     <Text m={0} color={"white"} fontFamily="ReemKufiRegular" fontSize={"medium"}>
-                                                        {launch.collection_symbol}
+                                                        {collection.collection_symbol}
                                                     </Text>
                                                 </HStack>
                                             </HStack>
@@ -681,7 +693,7 @@ const CollectionSwapPage = () => {
                                                 />
                                                 <InputRightElement h="100%" w={50}>
                                                     <Image
-                                                        src={launch.collection_icon_url}
+                                                        src={collection.collection_icon_url}
                                                         width={30}
                                                         height={30}
                                                         alt="SOL Icon"
@@ -726,11 +738,11 @@ const CollectionSwapPage = () => {
                                                             w="100%"
                                                             mt={3}
                                                             onClick={() => {
-                                                                if (launch.collection_meta["__kind"] === "RandomFixedSupply") {
+                                                                if (collection.collection_meta["__kind"] === "RandomFixedSupply") {
                                                                     openAssetModal();
                                                                     MintNFT();
                                                                 }
-                                                                if (launch.collection_meta["__kind"] === "RandomUnlimited") {
+                                                                if (collection.collection_meta["__kind"] === "RandomUnlimited") {
                                                                     openAssetModal();
                                                                     MintRandom();
                                                                 }
@@ -743,10 +755,10 @@ const CollectionSwapPage = () => {
                                                 </HStack>
                                             ) : (
                                                 <Tooltip
-                                                    label={`You don't have ${launch.collection_name} NFTs`}
+                                                    label={`You don't have ${collection.collection_name} NFTs`}
                                                     hasArrow
                                                     offset={[0, 10]}
-                                                    isDisabled={nft_balance > 0 || isLoading}
+                                                    isDisabled={nftBalance > 0 || isLoading}
                                                 >
                                                     <Button
                                                         w="100%"
@@ -759,7 +771,7 @@ const CollectionSwapPage = () => {
                                                             }
                                                         }}
                                                         isLoading={isWrapLoading}
-                                                        isDisabled={nft_balance <= 0 || isLoading}
+                                                        isDisabled={nftBalance <= 0 || isLoading}
                                                     >
                                                         Confirm
                                                     </Button>
@@ -776,18 +788,18 @@ const CollectionSwapPage = () => {
 
                             <VStack minW={220}>
                                 <Image
-                                    src={token_mint.icon}
+                                    src={collection.token_icon_url}
                                     width={180}
                                     height={180}
                                     alt="Image Frame"
                                     style={{ backgroundSize: "cover", borderRadius: 12 }}
                                 />
                                 <Text mt={1} mb={0} color="white" fontSize="x-large" fontFamily="ReemKufiRegular">
-                                    {launch.token_symbol}
+                                    {collection.token_symbol}
                                 </Text>
                                 <HStack mb={1} spacing={2} align="start" justify="start">
                                     <Text m={0} color={"white"} fontFamily="ReemKufiRegular" fontSize={"large"}>
-                                        CA: {trimAddress(launch.keys[CollectionKeys.MintAddress].toString())}
+                                        CA: {trimAddress(collection.keys[CollectionKeys.MintAddress].toString())}
                                     </Text>
 
                                     <Tooltip label="Copy Contract Address" hasArrow fontSize="large" offset={[0, 10]}>
@@ -795,7 +807,7 @@ const CollectionSwapPage = () => {
                                             style={{ cursor: "pointer" }}
                                             onClick={(e) => {
                                                 e.preventDefault();
-                                                navigator.clipboard.writeText(launch.keys[CollectionKeys.MintAddress].toString());
+                                                navigator.clipboard.writeText(collection.keys[CollectionKeys.MintAddress].toString());
                                             }}
                                         >
                                             <MdOutlineContentCopy color="white" size={lg ? 22 : 22} />
@@ -804,7 +816,7 @@ const CollectionSwapPage = () => {
 
                                     <Tooltip label="View in explorer" hasArrow fontSize="large" offset={[0, 10]}>
                                         <Link
-                                            href={getSolscanLink(launch.keys[CollectionKeys.MintAddress], "Token")}
+                                            href={getSolscanLink(collection.keys[CollectionKeys.MintAddress], "Token")}
                                             target="_blank"
                                             onClick={(e) => e.stopPropagation()}
                                         >
@@ -820,8 +832,8 @@ const CollectionSwapPage = () => {
                                     <Tooltip label="Rug Check" hasArrow fontSize="large" offset={[0, 10]}>
                                         <Link
                                             href={`https://rugcheck.xyz/tokens/${
-                                                launch && launch.keys && launch.keys[CollectionKeys.MintAddress]
-                                                    ? launch.keys[CollectionKeys.MintAddress].toString()
+                                                collection && collection.keys && collection.keys[CollectionKeys.MintAddress]
+                                                    ? collection.keys[CollectionKeys.MintAddress].toString()
                                                     : ""
                                             }`}
                                             target="_blank"
@@ -837,7 +849,7 @@ const CollectionSwapPage = () => {
                                         </Link>
                                     </Tooltip>
                                 </HStack>
-                                <ShowExtensions extension_flag={launch.token_extensions} />
+                                <ShowExtensions extension_flag={collection.token_extensions} />
                             </VStack>
                         </Flex>
 
@@ -857,8 +869,8 @@ const CollectionSwapPage = () => {
                                     }}
                                     size="sm"
                                     min={0}
-                                    max={launch.total_supply}
-                                    value={launch.num_available}
+                                    max={collection.total_supply}
+                                    value={collection.num_available}
                                     boxShadow="0px 5px 15px 0px rgba(0,0,0,0.6) inset"
                                 />
                                 <HStack style={{ position: "absolute", zIndex: 1 }}>
