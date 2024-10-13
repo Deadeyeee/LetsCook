@@ -182,7 +182,7 @@ export function ReceivedAssetModal({
     let failed = assignment_data.status === 1;
     let checking = assignment_data.status === 0;
 
-    console.log("curated ", curated, " checking ", checking, " assignment_data ", assignment_data)
+    console.log("curated ", curated, " checking ", checking, " assignment_data ", assignment_data);
     let height = success ? style.succsss_h : failed ? style.failed_h : style.checking_h;
     let width = success ? style.success_w : failed ? style.failed_w : style.checking_w;
 
@@ -264,6 +264,17 @@ export function ReceivedAssetModal({
 
     let globalLoading = isLoading || isMintLoading || isMintRandomLoading;
     //console.log("globalLoading: ", globalLoading, isLoading, isMintLoading, isMintRandomLoading);
+
+    console.log("isWarningOpened:", isWarningOpened);
+    console.log("closeWarning:", closeWarning);
+    console.log("collection:", collection);
+    console.log("assignment_data:", assignment_data);
+    console.log("asset:", asset);
+    console.log("asset_image:", asset_image);
+    console.log("style:", style);
+    console.log("curated:", curated);
+    console.log("isLoading:", isLoading);
+    console.log("have_randoms:", have_randoms);
 
     return (
         <>

@@ -17,7 +17,15 @@ import {
     Spacer,
     useDisclosure,
 } from "@chakra-ui/react";
-import { Key, getAssetV1GpaBuilder, updateAuthority, AssetV1, fetchAssetV1, deserializeAssetV1 } from "@metaplex-foundation/mpl-core";
+import {
+    Key,
+    getAssetV1GpaBuilder,
+    updateAuthority,
+    AssetV1,
+    fetchAssetV1,
+    deserializeAssetV1,
+    collect,
+} from "@metaplex-foundation/mpl-core";
 import type { RpcAccount, PublicKey as umiKey } from "@metaplex-foundation/umi";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { publicKey } from "@metaplex-foundation/umi";
@@ -55,6 +63,9 @@ import formatPrice from "../../utils/formatPrice";
 import useTokenBalance from "../../hooks/data/useTokenBalance";
 import useCollection from "../../hooks/data/useCollection";
 import { useNftBalance } from "../../hooks/data/useNftBalance";
+import { useWhitelist } from "../../hooks/useWhitelist";
+import { useOutputCalculation } from "../../hooks/data/useOutAmmount";
+import useAssignmentData from "../../hooks/data/useAssignmentData";
 
 export interface AssetWithMetadata {
     asset: AssetV1;
@@ -100,40 +111,29 @@ const CollectionSwapPage = () => {
     const { xs, sm, md, lg, xl } = useResponsive();
     const { handleConnectWallet } = UseWalletConnection();
     const { mintData } = useAppRoot();
-    const [assigned_nft, setAssignedNFT] = useState<AssignmentData | null>(null);
-    const [out_amount, setOutAmount] = useState<number>(0);
-    const [nft_balance, setNFTBalance] = useState<number>(0);
-    const [owned_assets, setOwnedAssets] = useState<AssetWithMetadata[]>([]);
-
     const [token_amount, setTokenAmount] = useState<number>(0);
-    const [token_mint, setTokenMint] = useState<MintData | null>(null);
-
     const [nft_amount, setNFTAmount] = useState<number>(0);
     const [isTokenToNFT, setIsTokenToNFT] = useState(false);
 
     const collection_key = useRef<PublicKey | null>(null);
-
     const nft_account_ws_id = useRef<number | null>(null);
-
     const mint_nft = useRef<boolean>(false);
-    const check_initial_assignment = useRef<boolean>(true);
     const check_initial_nft_balance = useRef<boolean>(true);
 
-    const asset_received = useRef<AssetV1 | null>(null);
-    const asset_image = useRef<string | null>(null);
 
     const [white_list, setWhiteList] = useState<MintData | null>(null);
 
     const { isOpen: isAssetModalOpen, onOpen: openAssetModal, onClose: closeAssetModal } = useDisclosure();
 
     const { collection, collectionPlugins, error: collectionError } = useCollection({ pageName: pageName as string | null });
+    const whitelist = useWhitelist(collectionPlugins, mintData);
+    const getOutputAmount = useOutputCalculation(collection);
+
+    const { ClaimNFT, isLoading: isClaimLoading, OraoRandoms, setOraoRandoms } = useClaimNFT(collection);
 
     const { MintNFT, isLoading: isMintLoading } = useMintNFT(collection);
     const { WrapNFT, isLoading: isWrapLoading } = useWrapNFT(collection);
-
     const { MintRandom, isLoading: isMintRandomLoading } = useMintRandom(collection);
-    const { ClaimNFT, isLoading: isClaimLoading, OraoRandoms, setOraoRandoms } = useClaimNFT(collection);
-
     const mintAddress = useMemo(() => {
         return collection?.keys?.[CollectionKeys.MintAddress] || null;
     }, [collection]);
@@ -143,6 +143,14 @@ const CollectionSwapPage = () => {
     let isLoading = isClaimLoading || isMintRandomLoading || isWrapLoading || isMintLoading;
 
     const { ownedAssets, nftBalance, loading, error, refetch } = useNftBalance(collection_key.current, wallet);
+    const { assignedNFT, setAssignedNFT,  setOraoRandoms: assignmentSetOraoRandoms, mintNft, asset_image, asset_received } = useAssignmentData(
+        wallet,
+        collection,
+        connection,
+        setOraoRandoms,
+        openAssetModal,
+        refetch,
+    );
     const modalStyle: ReceivedAssetModalStyle = {
         check_image: "/images/cooks.jpeg",
         failed_image: "/images/cooks.jpeg",
@@ -163,35 +171,20 @@ const CollectionSwapPage = () => {
     };
 
     useEffect(() => {
+        if (!isLoading) {
+            refetch(); // Call refetch only after WrapNFT is finished
+            console.log("WrapNFT finished, refetching...");
+        }
+    }, [isLoading, refetch]);
+
+    useEffect(() => {
         if (!collection || !mintData) return;
 
         collection_key.current = collection.keys[CollectionKeys.CollectionMint];
 
-        let mint = mintData.get(collection.keys[CollectionKeys.MintAddress].toString());
-
-        setTokenMint(mint);
-
-        console.log("mint", mint);
-        let transfer_fee_config = getTransferFeeConfig(mint.mint);
-        let input_fee =
-            transfer_fee_config === null ? 0 : Number(calculateFee(transfer_fee_config.newerTransferFee, BigInt(collection.swap_price)));
-        let swap_price = bignum_to_num(collection.swap_price);
-
-        let input_amount = swap_price - input_fee;
-
-        let swap_fee = Math.floor((input_amount * collection.swap_fee) / 100 / 100);
-
-        let output = input_amount - swap_fee;
-
-        let output_fee = transfer_fee_config === null ? 0 : Number(calculateFee(transfer_fee_config.newerTransferFee, BigInt(output)));
-
-        let final_output = output - output_fee;
-
-        //console.log("actual input amount was",  input_fee, input_amount,  "fee",  swap_fee,  "output", output, "output fee", output_fee, "final output", final_output);
-        setOutAmount(final_output / Math.pow(10, collection.token_decimals));
-
         if (collectionPlugins.whitelistKey) {
             setWhiteList(mintData.get(collectionPlugins.whitelistKey.toString()));
+            console.log("white_listwhite_list", white_list);
         }
 
         if (collectionPlugins.mintOnly) {
@@ -203,7 +196,6 @@ const CollectionSwapPage = () => {
 
     useEffect(() => {
         return () => {
-            // console.log("in use effect return");
             const unsub = async () => {
                 if (nft_account_ws_id.current !== null) {
                     await connection.removeAccountChangeListener(nft_account_ws_id.current);
@@ -221,133 +213,14 @@ const CollectionSwapPage = () => {
 
         mint_nft.current = false;
     }, [OraoRandoms]);
-
-    const check_assignment_update = useCallback(
-        async (result: any) => {
-            //console.log("assignment", result);
-            // if we have a subscription field check against ws_id
-
-            let event_data = result.data;
-
-            //console.log("have assignment data", event_data);
-            let account_data = Buffer.from(event_data, "base64");
-
-            if (account_data.length === 0) {
-                //console.log("account deleted");
-                setAssignedNFT(null);
-                mint_nft.current = false;
-                return;
-            }
-
-            const [updated_data] = AssignmentData.struct.deserialize(account_data);
-
-            //console.log("in check assignment", updated_data, updated_data.nft_address.toString());
-            if (assigned_nft !== null && updated_data.num_interations === assigned_nft.num_interations) {
-                return;
-            }
-
-            // if we are started to wait for randoms then open up the modal
-            if (!updated_data.random_address.equals(SYSTEM_KEY)) {
-                openAssetModal();
-            }
-
-            if (updated_data.status < 2) {
-                asset_received.current = null;
-                asset_image.current = null;
-            } else {
-                let nft_index = updated_data.nft_index;
-                let json_url = collection.nft_meta_url + nft_index + ".json";
-                //console.log(json_url);
-                let uri_json = await fetch(json_url).then((res) => res.json());
-                asset_image.current = uri_json;
-
-                try {
-                    const umi = createUmi(Config.RPC_NODE, "confirmed");
-
-                    let asset_umiKey = publicKey(updated_data.nft_address.toString());
-                    const myAccount = await umi.rpc.getAccount(asset_umiKey);
-
-                    if (myAccount.exists) {
-                        let asset = await deserializeAssetV1(myAccount as RpcAccount);
-                        //console.log("new asset", asset);
-                        asset_received.current = asset;
-                        let uri_json = await fetch(asset.uri).then((res) => res.json());
-                        asset_image.current = uri_json;
-                    } else {
-                        asset_received.current = null;
-                    }
-
-                    refetch();
-                } catch (error) {
-                    asset_received.current = null;
-                }
-            }
-
-            //console.log(updated_data);
-            mint_nft.current = true;
-            setAssignedNFT(updated_data);
-        },
-        [collection, assigned_nft, wallet, setOwnedAssets, setNFTBalance, openAssetModal, refetch],
-    );
-
-    const get_assignment_data = useCallback(async () => {
-        //console.log("get assignment data", launch === null, mintData === null);
-        if (collection === null || mintData === null) return;
-
-        if (!check_initial_assignment.current) {
-            return;
-        }
-
-        let nft_assignment_account = PublicKey.findProgramAddressSync(
-            [wallet.publicKey.toBytes(), collection.keys[CollectionKeys.CollectionMint].toBytes(), Buffer.from("assignment")],
-            PROGRAM,
-        )[0];
-
-        let assignment_data = await request_assignment_data(nft_assignment_account);
-
-        ///generate_random_f64(bytes);
-        check_initial_assignment.current = false;
-        if (assignment_data === null) {
-            return;
-        }
-
-        if (!assignment_data.random_address.equals(SYSTEM_KEY) && assignment_data.status == 0) {
-            let orao_data = await request_raw_account_data("", assignment_data.random_address);
-            let orao_randomness: number[] = Array.from(orao_data.slice(8 + 32, 8 + 32 + 64));
-
-            let valid = false;
-            for (let i = 0; i < orao_randomness.length; i++) {
-                if (orao_randomness[i] != 0) {
-                    valid = true;
-                    break;
-                }
-            }
-            if (valid) {
-                mint_nft.current = true;
-                setOraoRandoms(orao_randomness);
-            }
-        }
-
-        //console.log(assignment_data);
-        setAssignedNFT(assignment_data);
-    }, [collection, wallet, mintData, setOraoRandoms]);
-
+    
     useEffect(() => {
         if (!collection) return;
 
         if (wallet === null || wallet.publicKey === null) {
             return;
         }
-
-        if (nft_account_ws_id.current === null) {
-            //console.log("subscribe 2");
-            let nft_assignment_account = PublicKey.findProgramAddressSync(
-                [wallet.publicKey.toBytes(), collection.keys[CollectionKeys.CollectionMint].toBytes(), Buffer.from("assignment")],
-                PROGRAM,
-            )[0];
-            nft_account_ws_id.current = connection.onAccountChange(nft_assignment_account, check_assignment_update, "confirmed");
-        }
-    }, [wallet, connection, collection, check_assignment_update]);
+    }, [wallet, connection, collection]);
 
     useEffect(() => {
         if (collection === null) return;
@@ -356,19 +229,16 @@ const CollectionSwapPage = () => {
             return;
         }
 
-        if (check_initial_assignment.current) {
-            get_assignment_data();
-        }
 
         if (collection_key.current && check_initial_nft_balance.current) {
             refetch();
             check_initial_nft_balance.current = false;
         }
-    }, [collection, wallet, get_assignment_data, setOwnedAssets, setNFTBalance, refetch]);
+    }, [collection, wallet, refetch]);
 
     if (!pageName) return;
 
-    if (collection === null || token_mint === null) return <Loader />;
+    if (collection === null) return <Loader />;
 
     if (!collection) return <PageNotFound />;
 
@@ -504,7 +374,7 @@ const CollectionSwapPage = () => {
                                     <HStack align="center" mb={4}>
                                         <Text m={0} color="white" fontSize="medium" fontWeight="semibold">
                                             {!isTokenToNFT
-                                                ? `1 NFT = ${formatPrice(out_amount, 3)} ${collection.token_symbol}`
+                                                ? `1 NFT = ${formatPrice(getOutputAmount, 3)} ${collection.token_symbol}`
                                                 : `${formatPrice(
                                                       bignum_to_num(collection.swap_price) / Math.pow(10, collection.token_decimals),
                                                       3,
@@ -544,7 +414,7 @@ const CollectionSwapPage = () => {
                                                                       Math.pow(10, collection.token_decimals),
                                                                   3,
                                                               )
-                                                            : formatPrice(out_amount, 3)
+                                                            : formatPrice(getOutputAmount, 3)
                                                     }
                                                     onChange={(e) => {
                                                         setTokenAmount(
@@ -559,7 +429,7 @@ const CollectionSwapPage = () => {
                                                 />
                                                 <InputRightElement h="100%" w={50}>
                                                     <Image
-                                                        src={token_mint.icon}
+                                                        src={collection.token_icon_url}
                                                         width={30}
                                                         height={30}
                                                         alt="SOL Icon"
@@ -628,7 +498,7 @@ const CollectionSwapPage = () => {
                                         <VStack spacing={3} w="100%">
                                             {isTokenToNFT ? (
                                                 <HStack w="100%">
-                                                    {assigned_nft === null || assigned_nft.status > 0 ? (
+                                                    {assignedNFT === null || assignedNFT.status > 0 ? (
                                                         <Tooltip
                                                             label="You don't have enough token balance"
                                                             hasArrow
@@ -809,7 +679,7 @@ const CollectionSwapPage = () => {
                     have_randoms={OraoRandoms.length > 0}
                     isWarningOpened={isAssetModalOpen}
                     closeWarning={closeAssetModal}
-                    assignment_data={assigned_nft}
+                    assignment_data={assignedNFT}
                     collection={collection}
                     asset={asset_received}
                     asset_image={asset_image}
