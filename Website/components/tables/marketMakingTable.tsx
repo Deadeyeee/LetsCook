@@ -190,7 +190,7 @@ const MarketMakingTable = () => {
     });
 
     if (!mintData || !listingData || !ammData) {
-        return <Loader/>;
+        return <Loader />;
     }
 
     return (
@@ -237,7 +237,7 @@ const MarketMakingTable = () => {
 
 const LaunchCard = ({ amm_launch, SOLPrice }: { amm_launch: AMMLaunch; SOLPrice: number }) => {
     const router = useRouter();
-    const { sm, md, lg } = useResponsive();
+    const { xs, sm, md, lg } = useResponsive();
     const { ammData, jupPrices } = useAppRoot();
 
     let current_date = Math.floor((new Date().getTime() / 1000 - bignum_to_num(amm_launch.amm_data.start_time)) / 24 / 60 / 60);
@@ -273,6 +273,19 @@ const LaunchCard = ({ amm_launch, SOLPrice }: { amm_launch: AMMLaunch; SOLPrice:
 
     let show_birdeye = !have_raydium_amm && !have_raydium_cpmm && !have_cook_amm;
 
+    const mobileOrTablet = xs || sm || md;
+
+    const handleNavigation = () => {
+        if (have_cook_amm) {
+            router.push("/trade/" + cook_amm_address);
+        } else if (show_birdeye) {
+            router.push("https://birdeye.so/token/" + amm_launch.listing.mint.toString() + "?chain=solana");
+        } else if (have_raydium_amm) {
+            router.push("/trade/" + raydium_amm_address.toString());
+        } else if (have_raydium_cpmm) {
+            router.push("/trade/" + raydium_cpmm_address.toString());
+        }
+    };
     return (
         <tr
             style={{
@@ -286,17 +299,7 @@ const LaunchCard = ({ amm_launch, SOLPrice }: { amm_launch: AMMLaunch; SOLPrice:
             onMouseOut={(e) => {
                 e.currentTarget.style.backgroundColor = ""; // Reset to default background color
             }}
-            onClick={() => {
-                if (have_cook_amm) {
-                    router.push("/trade/" + cook_amm_address);
-                } else if (show_birdeye) {
-                    router.push("https://birdeye.so/token/" + amm_launch.listing.mint.toString() + "?chain=solana");
-                } else if (have_raydium_amm) {
-                    router.push("/trade/" + raydium_amm_address.toString());
-                } else if (have_raydium_cpmm) {
-                    router.push("/trade/" + raydium_cpmm_address.toString());
-                }
-            }}
+            {...(mobileOrTablet ? { onClick: handleNavigation } : { onDoubleClick: handleNavigation })}
         >
             <td style={{ minWidth: "160px" }}>
                 <HStack m="0 auto" w={160} px={3} spacing={3} justify="start">
