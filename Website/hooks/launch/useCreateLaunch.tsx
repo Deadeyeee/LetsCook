@@ -39,6 +39,7 @@ import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_I
 import useEditLaunch from "./useEditLaunch";
 import useIrysUploader from "../useIrysUploader";
 
+import useSendTransaction from "../useSendTransaction";
 // Define the Tag type
 type Tag = {
     name: string;
@@ -47,25 +48,19 @@ type Tag = {
 
 const usuCreateLaunch = () => {
     const wallet = useWallet();
-    const router = useRouter();
     const { newLaunchData, checkProgramData } = useAppRoot();
-    const [isLoading, setIsLoading] = useState(false);
 
     const signature_ws_id = useRef<number | null>(null);
     const { EditLaunch } = useEditLaunch();
 
     const { getIrysUploader } = useIrysUploader(wallet);
 
+    const { sendTransaction, isLoading } = useSendTransaction();
     const check_signature_update = useCallback(
         async (result: any) => {
             // if we have a subscription field check against ws_id
             signature_ws_id.current = null;
-            setIsLoading(false);
 
-            if (result.err !== null) {
-                toast.error("Transaction failed, please try again");
-                return;
-            }
 
             toast.success("Launch (1/2) Complete", {
                 type: "success",
@@ -79,18 +74,6 @@ const usuCreateLaunch = () => {
         [EditLaunch],
     );
 
-    const transaction_failed = useCallback(async () => {
-        if (signature_ws_id.current == null) return;
-
-        signature_ws_id.current = null;
-        setIsLoading(false);
-
-        toast.error("Transaction not processed, please try again", {
-            type: "error",
-            isLoading: false,
-            autoClose: 3000,
-        });
-    }, []);
 
     const CreateLaunch = async () => {
         if (wallet.publicKey === null || wallet.signTransaction === undefined) return;
@@ -114,7 +97,6 @@ const usuCreateLaunch = () => {
             await EditLaunch();
             return;
         }
-        setIsLoading(true);
 
         const connection = new Connection(Config.RPC_NODE, { wsEndpoint: Config.WSS_NODE });
 
@@ -162,7 +144,6 @@ const usuCreateLaunch = () => {
                     autoClose: 2000,
                 });
             } catch (error) {
-                setIsLoading(false);
                 console.log(error);
                 toast.update(uploadImageToArweave, {
                     render: "Oops! Something went wrong during funding. Please try again later. ",
@@ -195,7 +176,6 @@ const usuCreateLaunch = () => {
                     autoClose: 2000,
                 });
             } catch (error) {
-                setIsLoading(false);
 
                 toast.update(uploadToArweave, {
                     render: `Failed to upload images, please try again later.`,
@@ -268,7 +248,6 @@ const usuCreateLaunch = () => {
                     autoClose: 2000,
                 });
             } catch (error) {
-                setIsLoading(false);
 
                 toast.update(fundMetadata, {
                     render: "Something went wrong. Please try again later. ",
@@ -299,7 +278,6 @@ const usuCreateLaunch = () => {
                     autoClose: 2000,
                 });
             } catch (error) {
-                setIsLoading(false);
 
                 toast.update(uploadMetadata, {
                     render: `Failed to upload token metadata, please try again later.`,
@@ -390,53 +368,26 @@ const usuCreateLaunch = () => {
             data: instruction_data,
         });
 
-        let txArgs = await get_current_blockhash("");
+        let instructions: TransactionInstruction[] = [];
 
-        let transaction = new Transaction(txArgs);
-        transaction.feePayer = wallet.publicKey;
+        instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: feeMicroLamports }));
+        instructions.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
+        instructions.push(list_instruction);
 
-        transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: feeMicroLamports }));
-        transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
-        transaction.add(list_instruction);
-
-        transaction.partialSign(newLaunchData.current.token_keypair);
+        // transaction.partialSign(newLaunchData.current.token_keypair);
 
         const createLaunch = toast.info("(3/4) Setting up your launch accounts");
 
-        try {
-            let signed_transaction = await wallet.signTransaction(transaction);
-
-            var signature = await connection.sendRawTransaction(signed_transaction.serialize(), { skipPreflight: true });
-
-            console.log(signature);
-            //var transaction_response = await send_transaction("", encoded_transaction);
-
-            if (signature === undefined) {
-                console.log(signature);
-                toast.error("Transaction failed, please try again");
-                return;
-            }
-
-            //let signature = transaction_response.result;
-
-            if (DEBUG) {
-                console.log("list signature: ", signature);
-            }
-            signature_ws_id.current = 1;
-
-            connection.onSignature(signature, check_signature_update, "confirmed");
-            setTimeout(transaction_failed, 20000);
-        } catch (error) {
-            console.log(error);
-            setIsLoading(false);
-            toast.update(createLaunch, {
-                render: "We couldn't create your launch accounts. Please try again.",
-                type: "error",
-                isLoading: false,
-                autoClose: 3000,
-            });
-            return;
-        }
+        instructions.push(list_instruction);
+        await sendTransaction({
+            instructions,
+            onSuccess: () => {
+                // Handle success
+            },
+            onError: (error) => {
+                // Handle error
+            },
+        });
     };
 
     return { CreateLaunch };
