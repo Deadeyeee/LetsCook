@@ -2,7 +2,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { MintData } from "../../components/Solana/state";
-import { MMLaunchData, reward_schedule, AMMData } from "../../components/Solana/jupiter_state";
+import { MMLaunchData, reward_schedule, AMMData, getAMMPlugins, AMMPluginData } from "../../components/Solana/jupiter_state";
 import { bignum_to_num } from "../../components/Solana/state";
 import { Config } from "../../components/Solana/constants";
 import { useEffect, useState, useRef } from "react";
@@ -28,7 +28,7 @@ import { MdOutlineContentCopy } from "react-icons/md";
 import { PiArrowsOutLineVerticalLight } from "react-icons/pi";
 import { createChart, CrosshairMode } from "lightweight-charts";
 import trimAddress from "../../utils/trimAddress";
-import { FaChartLine, FaInfo } from "react-icons/fa";
+import { FaChartLine, FaInfo, FaWallet } from "react-icons/fa";
 
 import MyRewardsTable from "../../components/tables/myRewards";
 import Links from "../../components/Buttons/links";
@@ -56,9 +56,17 @@ import useListing from "@/hooks/data/useListing";
 import useGetUserBalance from "@/hooks/data/useGetUserBalance";
 import { ListingData } from "@letscook/sdk/dist/state/listing";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import useSwapRaydium from "@/hooks/raydium/useSwapRaydium";
+import useSwapRaydiumClassic from "@/hooks/raydium/useSwapRaydiumClassic";
+import { CalculateChunkedOutput } from "@/utils/calculateChunkedOutput";
+import { getBaseOutput, getQuoteOutput } from "@/utils/getBaseQuoteOutput";
+import { IoSwapVertical } from "react-icons/io5";
+import { ChevronDown, Loader2 } from "lucide-react";
+import usePerformSwap from "@/hooks/jupiter/usePerformSwap";
 
 const TradePage = () => {
     const wallet = useWallet();
+    const { handleConnectWallet } = UseWalletConnection();
     const router = useRouter();
 
     const { xs, sm, lg } = useResponsive();
@@ -66,6 +74,8 @@ const TradePage = () => {
     const { SOLPrice } = useSOLPrice();
 
     const { userBalance: userSOLBalance } = useGetUserBalance();
+    const [panel, setPanel] = useState("Trade");
+    const [isAddLiquidity, setIsAddLiquidity] = useState(true);
 
     const { pageName } = router.query;
 
@@ -74,6 +84,8 @@ const TradePage = () => {
     const [additionalPixels, setAdditionalPixels] = useState(0);
 
     const [mobilePageContent, setMobilePageContent] = useState("Chart");
+    const [tokenAmount, setTokenAmount] = useState<number>(0);
+    const [solAmount, setSOLAmount] = useState<number>(0);
 
     const {
         amm,
@@ -148,49 +160,105 @@ const TradePage = () => {
                                     <HStack spacing={3} align="start" justify="start">
                                         <p className="text-lg text-white">{trimAddress(baseMint.mint.address.toString())}</p>
 
-                                        <Tooltip label="Copy Contract Address" hasArrow fontSize="large" offset={[0, 10]}>
-                                            <div
-                                                style={{ cursor: "pointer" }}
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    navigator.clipboard.writeText(baseMint.mint.address.toString());
-                                                }}
-                                            >
-                                                <MdOutlineContentCopy color="white" size={25} />
-                                            </div>
-                                        </Tooltip>
+                                        {/* <Tooltip label="Copy Contract Address" hasArrow fontSize="large" offset={[0, 10]}> */}
+                                        <div
+                                            style={{ cursor: "pointer" }}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                navigator.clipboard.writeText(baseMint.mint.address.toString());
+                                            }}
+                                        >
+                                            <MdOutlineContentCopy color="white" size={25} />
+                                        </div>
+                                        {/* </Tooltip> */}
 
-                                        <Tooltip label="View in explorer" hasArrow fontSize="large" offset={[0, 10]}>
-                                            <Link
-                                                href={getSolscanLink(baseMint.mint.address, "Token")}
-                                                target="_blank"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <Image src="/images/solscan.png" width={25} height={25} alt="Solscan icon" />
-                                            </Link>
-                                        </Tooltip>
+                                        {/* <Tooltip label="View in explorer" hasArrow fontSize="large" offset={[0, 10]}> */}
+                                        <Link
+                                            href={getSolscanLink(baseMint.mint.address, "Token")}
+                                            target="_blank"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <Image src="/images/solscan.png" width={25} height={25} alt="Solscan icon" />
+                                        </Link>
+                                        {/* </Tooltip> */}
                                     </HStack>
                                 </VStack>
                             </HStack>
 
-                            {!sm && (
-                                <div className="w-full px-4 pb-4">
-                                    <Button
-                                        onClick={() => {
-                                            leftPanel === "Info"
-                                                ? setLeftPanel("Trade")
-                                                : leftPanel === "Trade"
-                                                  ? setLeftPanel("Info")
-                                                  : setLeftPanel("Info");
-                                        }}
-                                        className="w-full px-10 py-8 text-2xl transition-all hover:opacity-90"
-                                    >
-                                        {leftPanel === "Info" ? "Trade" : "Info"}
-                                    </Button>
-                                </div>
+                            <div className="flex justify-center w-full">
+                                {["Trade", "Liquidity", "Info"].map((name, i) => {
+                                    const isActive = panel === name;
+
+                                    return (
+                                        <Button
+                                            key={name}
+                                            className={`text-md px-6 text-white ${isActive ? "" : "text-opacity-75"} hover:text-black`}
+                                            variant={isActive ? "default" : "ghost"}
+                                            onClick={() => {
+                                                setPanel(name);
+                                            }}
+                                        >
+                                            {name}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+
+                            {panel === "Trade" && (
+                                <BuyAndSell
+                                    amm={amm}
+                                    base_mint={baseMint}
+                                    base_balance={ammBaseAmount}
+                                    quote_balance={ammQuoteAmount}
+                                    amm_lp_balance={ammLPAmount}
+                                    user_base_balance={userBaseAmount}
+                                    user_lp_balance={userLPAmount}
+                                    userSOLBalance={userSOLBalance}
+                                />
                             )}
 
-                            {leftPanel === "Info" && (
+                            {panel === "Liquidity" ? (
+                                isAddLiquidity ? (
+                                    <div className="w-full mt-4">
+                                        <AddLiquidityPanel
+                                            amm={amm}
+                                            base_mint={baseMint}
+                                            user_base_balance={userBaseAmount}
+                                            user_quote_balance={userSOLBalance}
+                                            sol_amount={solAmount}
+                                            token_amount={tokenAmount}
+                                            connected={wallet.connected}
+                                            setSOLAmount={setSOLAmount}
+                                            setTokenAmount={setTokenAmount}
+                                            handleConnectWallet={handleConnectWallet}
+                                            amm_base_balance={ammBaseAmount}
+                                            amm_quote_balance={ammQuoteAmount}
+                                            amm_lp_balance={ammLPAmount}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="w-full mt-4">
+                                        <RemoveLiquidityPanel
+                                            amm={amm}
+                                            base_mint={baseMint}
+                                            user_base_balance={userBaseAmount}
+                                            user_quote_balance={userSOLBalance}
+                                            user_lp_balance={userLPAmount}
+                                            sol_amount={solAmount}
+                                            token_amount={tokenAmount}
+                                            connected={wallet.connected}
+                                            setSOLAmount={setSOLAmount}
+                                            setTokenAmount={setTokenAmount}
+                                            handleConnectWallet={handleConnectWallet}
+                                            amm_base_balance={ammBaseAmount}
+                                            amm_quote_balance={ammQuoteAmount}
+                                            amm_lp_balance={ammLPAmount}
+                                        />
+                                    </div>
+                                )
+                            ) : null}
+
+                            {panel === "Info" && (
                                 <InfoContent
                                     listing={listing}
                                     amm={amm}
@@ -202,19 +270,6 @@ const TradePage = () => {
                                     quote_amount={ammQuoteAmount}
                                     lpMint={lpMint}
                                     lpTotal={ammLPAmount}
-                                />
-                            )}
-
-                            {leftPanel === "Trade" && (
-                                <BuyAndSell
-                                    amm={amm}
-                                    base_mint={baseMint}
-                                    base_balance={ammBaseAmount}
-                                    quote_balance={ammQuoteAmount}
-                                    amm_lp_balance={ammLPAmount}
-                                    user_base_balance={userBaseAmount}
-                                    user_lp_balance={userLPAmount}
-                                    userSOLBalance={userSOLBalance}
                                 />
                             )}
                         </VStack>
@@ -259,15 +314,9 @@ const TradePage = () => {
                                 />
                             </div>
 
-                            <MyRewardsTable amm={amm} />
-
-                            {!wallet.connected && (
-                                <HStack w="100%" align="center" justify="center" mt={25}>
-                                    <Text fontSize={lg ? "large" : "x-large"} m={0} color={"white"} style={{ opacity: 0.5 }}>
-                                        Connect your wallet to see your orders
-                                    </Text>
-                                </HStack>
-                            )}
+                            <div className="w-full -mt-4">
+                                <MyRewardsTable amm={amm} />
+                            </div>
                         </VStack>
                     )}
                 </HStack>
@@ -301,7 +350,7 @@ const TradePage = () => {
                             w="120px"
                             onClick={() => {
                                 setMobilePageContent("Trade");
-                                setLeftPanel("Trade");
+                                setPanel("Trade");
                             }}
                         >
                             <IoMdSwap size={28} color={"#683309"} />
@@ -314,7 +363,7 @@ const TradePage = () => {
                             w="120px"
                             onClick={() => {
                                 setMobilePageContent("Info");
-                                setLeftPanel("Info");
+                                setPanel("Info");
                             }}
                         >
                             <FaInfo size={24} color={"#683309"} />
@@ -425,167 +474,280 @@ const BuyAndSell = ({
     user_lp_balance: number;
     userSOLBalance: number;
 }) => {
+    const [isBuy, setIsBuy] = useState(true);
+    const [isTxnDetailOpen, setIsTxnDetailOpen] = useState(false);
     const { xs } = useResponsive();
     const wallet = useWallet();
     const { handleConnectWallet } = UseWalletConnection();
     const [selected, setSelected] = useState("Buy");
-    const [token_amount, setTokenAmount] = useState<number>(0);
-    const [sol_amount, setSOLAmount] = useState<number>(0);
+    const [tokenAmount, setTokenAmount] = useState<number>(0);
+    const [solAmount, setSOLAmount] = useState<number>(0);
+    // const [token_amount, setTokenAmount] = useState<number>(0);
+    // const [sol_amount, setSOLAmount] = useState<number>(0);
+    const { PerformSwap:PlaceMarketOrder, isLoading: placingOrder } = usePerformSwap(amm);
+    const { SwapRaydium, isLoading: placingRaydiumOrder } = useSwapRaydium(amm);
+    const { SwapRaydiumClassic, isLoading: placingRaydiumClassicOrder } = useSwapRaydiumClassic(amm);
 
-    const handleClick = (tab: string) => {
-        setSelected(tab);
-    };
-
-    //console.log(base_balance/Math.pow(10, 6), quote_balance)
-
-    let transfer_fee = 0;
-    let max_transfer_fee = 0;
-    let transfer_fee_config = getTransferFeeConfig(base_mint.mint);
-    if (transfer_fee_config !== null) {
-        transfer_fee = transfer_fee_config.newerTransferFee.transferFeeBasisPoints;
-        max_transfer_fee = Number(transfer_fee_config.newerTransferFee.maximumFee) / Math.pow(10, base_mint.mint.decimals);
+    const isLoading = placingOrder || placingRaydiumOrder || placingRaydiumClassicOrder;
+    base_balance = parseFloat(base_balance.toString().replace('.', ''));
+    console.log(base_balance)
+    // Early return if required props are missing
+    if (!base_mint || !amm) {
+        return null;
     }
 
+    const baseDecimals = base_mint.mint.decimals;
+    const baseRaw = Math.floor(tokenAmount * Math.pow(10, baseDecimals));
+    const quoteRaw = Math.floor(solAmount * Math.pow(10, 9));
+
+    const plugins: AMMPluginData = getAMMPlugins(amm);
+
+    const calculateOutputs = () => {
+        const base_output = plugins.liquidity_active
+            ? CalculateChunkedOutput(quoteRaw, quote_balance, base_balance, amm.fee, plugins, baseDecimals)
+            : getBaseOutput(quoteRaw, base_balance, quote_balance, amm.fee, baseDecimals);
+
+        const quote_output = plugins.liquidity_active
+            ? CalculateChunkedOutput(baseRaw, quote_balance, base_balance, amm.fee, plugins, 9, baseDecimals)
+            : getQuoteOutput(baseRaw, base_balance, quote_balance, amm.fee, 9, baseDecimals);
+
+        const base_rate = plugins.liquidity_active
+            ? CalculateChunkedOutput(1e9, quote_balance, base_balance, 0, plugins, baseDecimals)
+            : getBaseOutput(1e9, base_balance, quote_balance, 0, baseDecimals);
+
+        const quote_rate = plugins.liquidity_active
+            ? CalculateChunkedOutput(1 * Math.pow(10, baseDecimals), quote_balance, base_balance, 0, plugins, 9, baseDecimals)
+            : getQuoteOutput(1 * Math.pow(10, baseDecimals), base_balance, quote_balance, 0, 9, baseDecimals);
+
+        return { base_output, quote_output, base_rate, quote_rate };
+    };
+
+    const { base_output, quote_output, base_rate, quote_rate } = calculateOutputs();
+
+    const formatOutputString = (output: number[], decimals: number) => {
+        console.log(decimals, "decimals")
+        const outputString = formatPrice(output[0], decimals);
+        const slippage = output[1] / output[0] - 1;
+        const slippageString = isNaN(slippage) ? "0" : (slippage * 100).toFixed(2);
+        return {
+            outputString: outputString === "NaN" ? "0" : outputString,
+            slippageString,
+            fullString: slippage > 0 ? `${outputString} (${slippageString}%)` : outputString,
+        };
+    };
+
+    const base_output_formatted = formatOutputString(base_output, baseDecimals);
+    const quote_output_formatted = formatOutputString(quote_output, 5);
+
+    const handleAmountChange = (value: string) => {
+        const parsedValue = parseFloat(value);
+        const isValidNumber = !isNaN(parsedValue) || value === "";
+        const newValue = isValidNumber ? parsedValue : 0;
+
+        setSOLAmount(newValue);
+        setTokenAmount(newValue);
+    };
+
+    const handleSwap = async () => {
+        if (!wallet.connected) {
+            handleConnectWallet();
+            return;
+        }
+
+        const solAmount_raw = solAmount * Math.pow(10, 9);
+        const tokenAmount_raw = tokenAmount * Math.pow(10, baseDecimals);
+
+        try {
+            if (isBuy) {
+                switch (amm.provider) {
+                    case 0:
+                        await PlaceMarketOrder(tokenAmount, solAmount, 0);
+                        break;
+                    case 1:
+                        await SwapRaydium(base_output[0] * Math.pow(10, baseDecimals), 2 * solAmount_raw, 0);
+                        break;
+                    case 2:
+                        await SwapRaydiumClassic(base_output[0] * Math.pow(10, baseDecimals), solAmount_raw, 0);
+                        break;
+                }
+            } else {
+                switch (amm.provider) {
+                    case 0:
+                        await PlaceMarketOrder(tokenAmount, solAmount, 1);
+                        break;
+                    case 1:
+                        await SwapRaydium(tokenAmount_raw, 0, 1);
+                        break;
+                    case 2:
+                        await SwapRaydiumClassic(tokenAmount_raw, 0, 1);
+                        break;
+                }
+            }
+        } catch (error) {
+            console.error("Swap failed:", error);
+        }
+    };
+
+    const transfer_fee_config = getTransferFeeConfig(base_mint.mint);
+    const transfer_fee = transfer_fee_config?.newerTransferFee.transferFeeBasisPoints ?? 0;
+    const max_transfer_fee = transfer_fee_config ? Number(transfer_fee_config.newerTransferFee.maximumFee) / Math.pow(10, baseDecimals) : 0;
+
+    const AMMfee = (amm.fee * 0.001).toFixed(3);
     return (
-        <VStack align="start" w="100%" gap={0}>
-            <HStack align="center" spacing={0} zIndex={99} w="100%" className="px-4">
-                {["Buy", "Sell", "LP+", "LP-"].map((name, i) => {
-                    const isActive = selected === name;
+        <div className="w-full px-4 my-4 text-white">
+            <div className="flex flex-col gap-2">
+                {/* Input Fields */}
+                <div>
+                    {/* From Token Input */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2 opacity-50">
+                            <div>You're Paying</div>
+                            <div className="flex items-center gap-1">
+                                <FaWallet size={12} />
+                                <p className="text-sm">
+                                    {isBuy
+                                        ? userSOLBalance.toFixed(5)
+                                        : (user_base_balance).toLocaleString("en-US", {
+                                              minimumFractionDigits: 2,
+                                          })}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-3 bg-gray-800 rounded-xl">
+                            <div className="flex items-center gap-2 rounded-lg bg-gray-700 px-2.5 py-1.5">
+                                <div className="w-6">
+                                    <Image
+                                        src={isBuy ? Config.token_image : base_mint.icon}
+                                        width={25}
+                                        height={25}
+                                        alt="Token Icon"
+                                        className="rounded-full"
+                                    />
+                                </div>
+                                <span className="text-nowrap">{isBuy ? Config.token : base_mint.name}</span>
+                            </div>
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                className="w-full text-right bg-transparent focus:outline-none"
+                                value={isBuy ? solAmount : tokenAmount}
+                                onChange={(e) => handleAmountChange(e.target.value)}
+                            />
+                        </div>
+                    </div>
 
-                    const baseStyle = {
-                        display: "flex",
-                        alignItems: "center",
-                        cursor: "pointer",
-                    };
-
-                    const activeStyle = {
-                        background: isActive ? "#edf2f7" : "transparent",
-                        color: isActive ? "black" : "white",
-                        borderRadius: isActive ? "6px" : "",
-                        border: isActive ? "none" : "",
-                    };
-
-                    return (
-                        <Box
-                            key={i}
-                            style={{
-                                ...baseStyle,
-                                ...activeStyle,
-                            }}
-                            onClick={() => {
-                                handleClick(name);
-                            }}
-                            px={4}
-                            py={2}
-                            w={"50%"}
+                    {/* Swap Button */}
+                    <div className="flex justify-center">
+                        <button
+                            onClick={() => setIsBuy(!isBuy)}
+                            className="z-50 p-2 mx-auto mt-2 -mb-4 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700"
                         >
-                            <Text m={"0 auto"} fontSize="large" fontWeight="semibold">
-                                {name}
-                            </Text>
-                        </Box>
-                    );
-                })}
-            </HStack>
-            <div className="mt-1 flex w-full justify-between px-4 py-3">
-                <span className="text-md text-white text-opacity-50">Available Balance:</span>
-                <span className="text-md text-white/50">
-                    {selected === "Buy"
-                        ? userSOLBalance.toFixed(5)
-                        : selected === "LP-"
-                          ? user_lp_balance < 1e-3
-                              ? user_lp_balance.toExponential(3)
-                              : user_lp_balance.toFixed(Math.min(3))
-                          : user_base_balance.toLocaleString("en-US", {
-                                minimumFractionDigits: 2,
-                            })}{" "}
-                    {selected === "Buy" ? Config.token : selected === "LP-" ? "LP" : base_mint.symbol}
-                </span>
+                            <IoSwapVertical size={18} className="opacity-75" />
+                        </button>
+                    </div>
+
+                    {/* To Token Input */}
+                    <div className="">
+                        <div className="flex items-center justify-between mb-2 opacity-50">
+                            <div>To Receive</div>
+                            <div className="flex items-center gap-1">
+                                <FaWallet size={12} />
+                                <p className="text-sm">
+                                    {!isBuy
+                                        ? userSOLBalance.toFixed(5)
+                                        : (user_base_balance).toLocaleString("en-US", {
+                                              minimumFractionDigits: 2,
+                                          })}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-3 bg-gray-800 rounded-xl">
+                            <div className="flex items-center gap-2 rounded-lg bg-gray-700 px-2.5 py-1.5">
+                                <div className="w-6">
+                                    <Image
+                                        src={!isBuy ? Config.token_image : base_mint.icon}
+                                        width={25}
+                                        height={25}
+                                        alt="Token Icon"
+                                        className="rounded-full"
+                                    />
+                                </div>
+                                <span className="text-nowrap">{!isBuy ? Config.token : base_mint.name}</span>
+                            </div>
+                            <input
+                                readOnly
+                                disabled
+                                type="text"
+                                className="w-full text-right bg-transparent opacity-50 cursor-not-allowed focus:outline-none"
+                                value={isBuy ? base_output_formatted.fullString : quote_output_formatted.fullString}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Transaction Details */}
+                <div className="flex flex-col w-full max-w-md my-2 rounded-lg bg-white/5">
+                    <button
+                        onClick={() => setIsTxnDetailOpen(!isTxnDetailOpen)}
+                        className="flex w-full items-center justify-between rounded-md px-3 py-[0.6rem] text-white transition-colors hover:bg-white/10"
+                    >
+                        <span>Transaction Details</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isTxnDetailOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isTxnDetailOpen && (
+                        <div className="flex flex-col gap-3 px-3 py-3 text-white text-opacity-50 rounded-md">
+                            <HStack w="100%" justify="space-between">
+                                <p className="text-md">Rate</p>
+                                <p className="text-right">
+                                    {isBuy
+                                        ? `1 ${Config.token} = ${formatPrice(base_rate[0], baseDecimals)} ${base_mint.symbol}`
+                                        : `1 ${base_mint.symbol} = ${formatPrice(quote_rate[0], 5)} ${Config.token}`}
+                                </p>
+                            </HStack>
+
+                            <HStack w="100%" justify="space-between">
+                                <p className="text-md">Liquidity Provider Fee</p>
+                                <p>{AMMfee}%</p>
+                            </HStack>
+
+                            <HStack w="100%" justify="space-between">
+                                <p className="text-md">Slippage</p>
+                                <p>{isBuy ? base_output_formatted.slippageString : quote_output_formatted.slippageString}%</p>
+                            </HStack>
+
+                            {max_transfer_fee > 0 && (
+                                <>
+                                    <div className="w-full h-1 border-b border-gray-600/50"></div>
+                                    <HStack w="100%" justify="space-between">
+                                        <p className="text-md">Transfer Fee</p>
+                                        <p>{transfer_fee / 100}%</p>
+                                    </HStack>
+                                    <HStack w="100%" justify="space-between">
+                                        <p className="text-md">Max Transfer Fee</p>
+                                        <p>
+                                            {max_transfer_fee} {base_mint.symbol}
+                                        </p>
+                                    </HStack>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Swap Button */}
+                <button
+                    className={`w-full rounded-xl py-3 text-lg font-semibold text-black hover:bg-opacity-90 ${
+                        !wallet.connected ? "bg-white" : isBuy ? "bg-[#83FF81]" : "bg-[#FF6E6E]"
+                    }`}
+                    onClick={handleSwap}
+                    disabled={isLoading}
+                >
+                    {!wallet.connected ? "Connect Wallet" : isLoading ? <Loader2 className="mx-auto animate-spin" /> : "Swap"}
+                </button>
             </div>
-            {/* 
-
-            <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                <span className="text-md text- text-white text-opacity-50">AMM LP Fee:</span>
-                <span className="text-md text-white">{(amm.fee * 0.01).toFixed(2)}%</span>
-            </div>
-
-            <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                <span className="text-md text- text-white text-opacity-50">Transfer Fee (bps):</span>
-                <span className="text-md text-white">{transfer_fee}</span>
-            </div>
-
-            <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                <span className="text-md text- text-white text-opacity-50">Max Transfer Fee ({base_mint.symbol}):</span>
-                <span className="text-md text-white">{max_transfer_fee}</span>
-            </div> */}
-
-            {selected === "Buy" && (
-                <BuyPanel
-                    amm={amm}
-                    base_mint={base_mint}
-                    user_base_balance={user_base_balance}
-                    user_quote_balance={userSOLBalance}
-                    sol_amount={sol_amount}
-                    token_amount={token_amount}
-                    connected={wallet.connected}
-                    setSOLAmount={setSOLAmount}
-                    setTokenAmount={setTokenAmount}
-                    handleConnectWallet={handleConnectWallet}
-                    amm_base_balance={base_balance}
-                    amm_quote_balance={quote_balance}
-                />
-            )}
-            {selected === "Sell" && (
-                <SellPanel
-                    amm={amm}
-                    base_mint={base_mint}
-                    user_base_balance={user_base_balance}
-                    user_quote_balance={userSOLBalance}
-                    sol_amount={sol_amount}
-                    token_amount={token_amount}
-                    connected={wallet.connected}
-                    setSOLAmount={setSOLAmount}
-                    setTokenAmount={setTokenAmount}
-                    handleConnectWallet={handleConnectWallet}
-                    amm_base_balance={base_balance}
-                    amm_quote_balance={quote_balance}
-                />
-            )}
-            {selected === "LP+" && (
-                <AddLiquidityPanel
-                    amm={amm}
-                    base_mint={base_mint}
-                    user_base_balance={user_base_balance}
-                    user_quote_balance={userSOLBalance}
-                    sol_amount={sol_amount}
-                    token_amount={token_amount}
-                    connected={wallet.connected}
-                    setSOLAmount={setSOLAmount}
-                    setTokenAmount={setTokenAmount}
-                    handleConnectWallet={handleConnectWallet}
-                    amm_base_balance={base_balance}
-                    amm_quote_balance={quote_balance}
-                    amm_lp_balance={amm_lp_balance}
-                />
-            )}
-            {selected === "LP-" && (
-                <RemoveLiquidityPanel
-                    amm={amm}
-                    base_mint={base_mint}
-                    user_base_balance={user_base_balance}
-                    user_quote_balance={userSOLBalance}
-                    user_lp_balance={user_lp_balance}
-                    sol_amount={sol_amount}
-                    token_amount={token_amount}
-                    connected={wallet.connected}
-                    setSOLAmount={setSOLAmount}
-                    setTokenAmount={setTokenAmount}
-                    handleConnectWallet={handleConnectWallet}
-                    amm_base_balance={base_balance}
-                    amm_quote_balance={quote_balance}
-                    amm_lp_balance={amm_lp_balance}
-                />
-            )}
-        </VStack>
+        </div>
     );
 };
 
@@ -599,7 +761,7 @@ const InfoContent = ({
     volume,
     mm_data,
     lpMint,
-    lpTotal
+    lpTotal,
 }: {
     listing: ListingData;
     amm: AMMData;
@@ -623,16 +785,14 @@ const InfoContent = ({
     let total_supply = Number(base_mint.mint.supply) / Math.pow(10, base_mint.mint.decimals);
     let market_cap = total_supply * price * sol_price;
 
-
-    let liquidity = Math.min(market_cap, 2 * (quote_amount) * sol_price);
+    let liquidity = Math.min(market_cap, 2 * quote_amount * sol_price);
 
     const PRECISION = BigInt(10 ** 9);
-    const scaled_lp_supply = (BigInt(lpMint.mint.supply.toString()) * PRECISION) / 
-    BigInt(Math.pow(10, lpMint.mint.decimals));
+    const scaled_lp_supply = (BigInt(lpMint.mint.supply.toString()) * PRECISION) / BigInt(Math.pow(10, lpMint.mint.decimals));
     let lp_supply = Number(scaled_lp_supply) / Number(PRECISION);
     let lp_total = lpTotal / Math.pow(10, lpMint.mint.decimals);
-    let tlv = liquidity * (lp_total - lp_supply) / lp_total
-    console.log(lpMint.mint.address.toString())
+    let tlv = (liquidity * (lp_total - lp_supply)) / lp_total;
+    console.log(lpMint.mint.address.toString());
     let market_cap_string =
         sol_price === 0
             ? "--"
@@ -659,75 +819,75 @@ const InfoContent = ({
 
     return (
         <>
-            <div className="-mt-2 flex w-full flex-col space-y-0">
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Pool:</span>
+            <div className="flex flex-col w-full mt-2 space-y-0">
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Pool:</span>
                     <div className="flex items-center space-x-2">
-                        <span className="text-md text-white">{amm.provider === 0 ? "Let's Cook" : "Raydium"}</span>
+                        <span className="text-white text-md">{amm.provider === 0 ? "Let's Cook" : "Raydium"}</span>
                         {amm.provider === 0 && <Image src="/favicon.ico" alt="Cook Icon" width={30} height={30} />}
                         {amm.provider === 1 && <Image src="/images/raydium.png" alt="Raydium Icon" width={30} height={30} />}
                     </div>
                 </div>
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Price:</span>
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Price:</span>
                     <div className="flex items-center space-x-2">
-                        <span className="text-md text-white">{formatPrice(price, 5)}</span>
+                        <span className="text-white text-md">{formatPrice(price, 5)}</span>
                         <Image src={Config.token_image} width={30} height={30} alt="SOL Icon" />
                     </div>
                 </div>
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Volume (24h):</span>
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Volume (24h):</span>
                     <div className="flex items-center space-x-2">
-                        <span className="text-md text-white">{volume ? volume.toLocaleString() : 0}</span>
+                        <span className="text-white text-md">{volume ? volume.toLocaleString() : 0}</span>
                         <Image src={Config.token_image} width={30} height={30} alt="Token Icon" />
                     </div>
                 </div>
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Market Making Volume:</span>
-                    <span className="text-md text-white">
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Market Making Volume:</span>
+                    <span className="text-white text-md">
                         {mm_data ? (bignum_to_num(mm_data.buy_amount) / Math.pow(10, base_mint.mint.decimals)).toLocaleString() : 0}
                     </span>
                 </div>
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
                     <div className="flex items-center space-x-2">
-                        <span className="text-md text- text-white text-opacity-50">Market Making Rewards:</span>
+                        <span className="text-white text-opacity-50 text-md text-">Market Making Rewards:</span>
                         {reward === 0 && (
-                            <span className="text-md text- text-white text-opacity-50">
+                            <span className="text-white text-opacity-50 text-md text-">
                                 <FaPlusCircle onClick={() => onRewardsOpen()} />
                             </span>
                         )}
                     </div>
                     <div className="flex items-center space-x-2">
-                        <span className="text-md text-white">{reward.toLocaleString()}</span>
+                        <span className="text-white text-md">{reward.toLocaleString()}</span>
                         <Image src={base_mint.icon} width={30} height={30} alt="Token Icon" />
                     </div>
                 </div>
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Token Supply:</span>
-                    <span className="text-md text-white">{total_supply.toLocaleString()}</span>
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Token Supply:</span>
+                    <span className="text-white text-md">{total_supply.toLocaleString()}</span>
                 </div>
-                {/*<div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Market Cap:</span>
-                    <span className="text-md text-white">${market_cap_string}</span>
+                {/*<div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Market Cap:</span>
+                    <span className="text-white text-md">${market_cap_string}</span>
                 </div>*/}
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Liquidity:</span>
-                    <span className="text-md text-white">${liquidity_string}</span>
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Liquidity:</span>
+                    <span className="text-white text-md">${liquidity_string}</span>
                 </div>
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">TVL:</span>
-                    <span className="text-md text-white">${tlv_string}</span>
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">TVL:</span>
+                    <span className="text-white text-md">${tlv_string}</span>
                 </div>
 
-                <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Hype:</span>
+                <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                    <span className="text-white text-opacity-50 text-md text-">Hype:</span>
                     <HypeVote
                         launch_type={0}
                         launch_id={bignum_to_num(listing.id)}
@@ -739,19 +899,19 @@ const InfoContent = ({
                     />
                 </div>
 
-                {/* Socials */}
-                <div className="flex w-full justify-between px-4 py-3">
-                    <span className="text-md text- text-white text-opacity-50">Socials:</span>
-                    <Links socials={listing.socials} isTradePage={true} />
-                </div>
-
                 {/* Extensions */}
                 {base_mint.extensions !== 0 && (
-                    <div className="flex w-full justify-between border-b border-gray-600/50 px-4 py-3">
-                        <span className="text-md text- text-white text-opacity-50">Extensions:</span>
+                    <div className="flex justify-between w-full px-4 py-3 border-b border-gray-600/50">
+                        <span className="text-white text-opacity-50 text-md text-">Extensions:</span>
                         <ShowExtensions extension_flag={base_mint.extensions} />
                     </div>
                 )}
+                
+                {/* Socials */}
+                <div className="flex justify-between w-full px-4 py-3">
+                    <span className="text-white text-opacity-50 text-md text-">Socials:</span>
+                    <Links socials={listing.socials} isTradePage={true} />
+                </div>
             </div>
             <AddRewardModal amm={amm} isOpen={isRewardsOpen} onClose={onRewardsClose} />
         </>
