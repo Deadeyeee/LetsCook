@@ -94,7 +94,7 @@ function Recruit({
     if (!collection) return <></>;
 
     return (
-        <div className="flex w-full max-w-4xl flex-col items-center gap-6 p-6">
+        <div className="flex flex-col items-center w-full max-w-4xl gap-6 p-6">
             {/* Tabs */}
             <div className="flex w-full gap-2 rounded-xl border-2 border-[#3A2618] bg-[#1C1410]/50 p-2 backdrop-blur-sm">
                 <button
@@ -123,7 +123,7 @@ function Recruit({
                     {/* Main Recruitment Interface */}
                     <div className="relative w-full rounded-xl border-2 border-[#3A2618] bg-[#1C1410]/95 p-8 shadow-2xl backdrop-blur-md">
                         {/* Decorative Header 
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 transform">
+                    <div className="absolute transform -translate-x-1/2 -top-4 left-1/2">
                         <Image
                             src="/curatedLaunches/citizens/scroll-header.png"
                             width={200}
@@ -141,7 +141,7 @@ function Recruit({
                                     width={96}
                                     height={96}
                                     alt="Tavern Keeper"
-                                    className="scale-110 transform"
+                                    className="transform scale-110"
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
@@ -175,7 +175,7 @@ function Recruit({
                         </div>
 
                         {/* Statistics */}
-                        <div className="mb-6 grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-3 gap-4 mb-6 text-center">
                             <div className="rounded-lg border border-[#3A2618] bg-black/20 p-3">
                                 <p className="text-sm text-[#8B7355]">Available Recruits</p>
                                 <p className="text-lg font-bold text-[#C4A484]">{collection.num_available}</p>
@@ -192,37 +192,45 @@ function Recruit({
 
                         {/* Warning */}
                         <div className="mb-6 flex items-center gap-2 text-[#FF6B6B]">
-                            <FaSkull className="h-5 w-5" />
+                            <FaSkull className="w-5 h-5" />
                             <p className="text-sm italic">The path ahead is dark. Not all who venture return.</p>
                         </div>
 
                         {/* Action Button */}
                         {wallet.connected ? (
                             assignmentData === null || assignmentData.status > 0 ? (
-                                <button
-                                    onClick={() => {
-                                        if (!wallet.connected) {
-                                            handleConnectWallet();
-                                        }
-                                        if (wallet.connected && enoughTokenBalance) {
-                                            ClaimNFT();
-                                        }
-                                    }}
-                                    disabled={!enoughTokenBalance || isLoading}
-                                    className={`w-full transform rounded-lg border-2 border-[#3A2618] bg-gradient-to-b p-4 text-xl font-bold uppercase tracking-wider transition-all ${
-                                        enoughTokenBalance
-                                            ? "from-[#8B7355] to-[#3A2618] text-[#1C1410] hover:from-[#C4A484] hover:to-[#8B7355] active:scale-95"
-                                            : "from-[#4A3828] to-[#2A1810] text-[#8B7355] opacity-50"
-                                    }`}
-                                >
-                                    {isLoading ? (
-                                        <Loader2Icon className="mx-auto animate-spin" />
-                                    ) : !enoughTokenBalance ? (
-                                        "Insufficient Marks"
-                                    ) : (
-                                        "Recruit Mercenary"
+                                <div className="flex flex-col justify-center">
+                                    <button
+                                        onClick={() => {
+                                            if (!wallet.connected) {
+                                                handleConnectWallet();
+                                            }
+                                            if (wallet.connected && enoughTokenBalance) {
+                                                ClaimNFT();
+                                            }
+                                        }}
+                                        disabled={!enoughTokenBalance || isLoading}
+                                        className={`w-full transform rounded-lg border-2 border-[#3A2618] bg-gradient-to-b p-4 text-xl font-bold uppercase tracking-wider transition-all ${
+                                            enoughTokenBalance
+                                                ? "from-[#8B7355] to-[#3A2618] text-[#1C1410] hover:from-[#C4A484] hover:to-[#8B7355] active:scale-95"
+                                                : "from-[#4A3828] to-[#2A1810] text-[#8B7355] opacity-50"
+                                        }`}
+                                    >
+                                        {isLoading ? (
+                                            <Loader2Icon className="mx-auto animate-spin" />
+                                        ) : !enoughTokenBalance ? (
+                                            "Insufficient Marks"
+                                        ) : (
+                                            "Recruit Mercenary"
+                                        )}
+                                    </button>
+
+                                    {!enoughTokenBalance && (
+                                        <span className="flex justify-center w-full">
+                                            <Link className="mt-3 text-center underline text-[#8B7355] font-bold tracking-wider" href={"https://eclipse.letscook.wtf/trade/5j5MWxVHJbmDEbCVGRzNXN4TQmeta4vE9HL5XZfBsNfA"}>Buy and Sell $MARKS</Link>
+                                        </span>
                                     )}
-                                </button>
+                                </div>
                             ) : (
                                 <button
                                     onClick={() => {
