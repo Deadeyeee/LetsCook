@@ -22,15 +22,15 @@ const tableHeaders = [
     { text: "Liquidity", field: "liquidity" },
     { text: "Rewards (24h)", field: "rewards" },
     { text: "Socials", field: null },
-    { text: "Hype", field: "hype" },
+    // { text: "Hype", field: "hype" },
 ] as const;
 
 // Simplified LaunchRow component that just displays pre-processed data
 const LaunchRow = React.memo(({ row, onRowClick }: { row: MarketMakingRow; onRowClick: (address: string) => void }) => (
-    <TableRow className="cursor-pointer border-b transition-colors hover:bg-white/10" onClick={() => onRowClick(row.id)}>
+    <TableRow className="transition-colors border-b cursor-pointer hover:bg-white/10" onClick={() => onRowClick(row.id)}>
         <TableCell className="w-[150px]">
             <div className="flex items-center gap-3 px-4">
-                <div className="h-10 w-10 overflow-hidden rounded-lg">
+                <div className="w-10 h-10 overflow-hidden rounded-lg">
                     <Image alt={`${row.symbol} icon`} src={row.tokenIcon} width={48} height={48} className="object-cover" />
                 </div>
                 <span className="font-semibold">{row.symbol}</span>
@@ -52,7 +52,7 @@ const LaunchRow = React.memo(({ row, onRowClick }: { row: MarketMakingRow; onRow
         <TableCell className="min-w-[160px]">
             <Links socials={row.socials} />
         </TableCell>
-        <TableCell>
+        {/* <TableCell>
             <HypeVote
                 launch_type={0}
                 launch_id={row.hype.launchId}
@@ -62,7 +62,7 @@ const LaunchRow = React.memo(({ row, onRowClick }: { row: MarketMakingRow; onRow
                 isTradePage={false}
                 tokenMint={row.hype.tokenMint}
             />
-        </TableCell>
+        </TableCell> */}
     </TableRow>
 ));
 
@@ -131,7 +131,7 @@ const MarketMakingTable = () => {
 
     return (
         <div className="flex flex-col gap-2">
-            <div className="flex w-full justify-end px-2 lg:-mt-6">
+            <div className="flex justify-end w-full px-2 lg:-mt-6">
                 <Input
                     type="text"
                     placeholder="Search token"
@@ -148,10 +148,10 @@ const MarketMakingTable = () => {
                                 {header.field ? (
                                     <div
                                         onClick={() => header.field && handleSort(header.field)}
-                                        className="flex cursor-pointer justify-center font-semibold"
+                                        className="flex justify-center font-semibold cursor-pointer"
                                     >
                                         {header.text}
-                                        <FaSort className="ml-2 h-4 w-4" />
+                                        <FaSort className="w-4 h-4 ml-2" />
                                     </div>
                                 ) : (
                                     header.text
@@ -173,7 +173,7 @@ const MarketMakingTable = () => {
                 </TableBody>
             </Table>
 
-            <div className="mb-4 mt-3 flex flex-col items-center gap-3 lg:flex-row lg:justify-between lg:gap-0">
+            <div className="flex flex-col items-center gap-3 mt-3 mb-4 lg:flex-row lg:justify-between lg:gap-0">
                 {/* First row on mobile / Left side on desktop */}
                 <div className="flex items-center justify-center gap-3">
                     <Select
@@ -215,7 +215,7 @@ const MarketMakingTable = () => {
                             onClick={() => handlePageChange(1)}
                             disabled={currentPage === 1}
                         >
-                            <ChevronsLeft className="h-4 w-4" />
+                            <ChevronsLeft className="w-4 h-4" />
                         </Button>
                         <Button
                             className="h-9 w-9 sm:h-10 sm:w-10"
@@ -224,7 +224,7 @@ const MarketMakingTable = () => {
                             onClick={() => handlePageChange(currentPage - 1)}
                             disabled={currentPage === 1}
                         >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="w-4 h-4" />
                         </Button>
                     </div>
 
@@ -246,7 +246,7 @@ const MarketMakingTable = () => {
                                 <Button
                                     key={pageNum}
                                     variant={currentPage === pageNum ? "default" : "outline"}
-                                    className="h-9 w-9 p-0 sm:h-10 sm:w-10"
+                                    className="p-0 h-9 w-9 sm:h-10 sm:w-10"
                                     onClick={() => handlePageChange(pageNum)}
                                 >
                                     {pageNum}
@@ -264,7 +264,7 @@ const MarketMakingTable = () => {
                             onClick={() => handlePageChange(currentPage + 1)}
                             disabled={currentPage === totalPages}
                         >
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="w-4 h-4" />
                         </Button>
                         <Button
                             className="h-9 w-9 sm:h-10 sm:w-10"
@@ -273,7 +273,7 @@ const MarketMakingTable = () => {
                             onClick={() => handlePageChange(totalPages)}
                             disabled={currentPage === totalPages}
                         >
-                            <ChevronsRight className="h-4 w-4" />
+                            <ChevronsRight className="w-4 h-4" />
                         </Button>
                     </div>
                 </div>

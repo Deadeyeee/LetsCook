@@ -37,7 +37,7 @@ const GameTable = ({ launch_list, filters }: { launch_list: Map<string, LaunchDa
     const tableHeaders: Header[] = [
         { text: "Token", field: null },
         { text: "Socials", field: null },
-        { text: "Hype", field: "hype" },
+        // { text: "Hype", field: "hype" },
         { text: "Minimum Liquidity", field: "minimum_liquidity" },
         { text: "End Date", field: "end_date" },
     ];
@@ -217,7 +217,7 @@ const LaunchCard = ({ launch }: { launch: LaunchData }) => {
                 </div>
             </TableCell>
             <TableCell style={{ minWidth: "180px" }}>{socialsExist ? <Links socials={listing.socials} /> : <>No Socials</>}</TableCell>
-            <TableCell style={{ minWidth: "150px" }}>
+            {/* <TableCell style={{ minWidth: "150px" }}>
                 <HypeVote
                     launch_type={0}
                     launch_id={bignum_to_num(listing.id)}
@@ -227,7 +227,7 @@ const LaunchCard = ({ launch }: { launch: LaunchData }) => {
                     isTradePage={false}
                     tokenMint={listing.mint.toString()}
                 />
-            </TableCell>
+            </TableCell> */}
             <TableCell style={{ minWidth: "170px" }}>
                 {liquidityAmount} {Config.token}
             </TableCell>

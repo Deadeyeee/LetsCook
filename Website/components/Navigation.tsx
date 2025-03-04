@@ -79,6 +79,7 @@ function Navigation() {
                         <MenuButton>
                             <Badge px={2} py={1} borderRadius={20}>
                                 <HStack spacing={1} alignItems="center">
+                                <Image src="/images/eclipse.png" alt="solana logo" width={20} height={20} />
                                     <Text m={0}>
                                         {selectedNetwork === "mainnet"
                                             ? "Mainnet Beta"
@@ -86,11 +87,11 @@ function Navigation() {
                                               ? "Devnet"
                                               : "Eclipse"}
                                     </Text>
-                                    <FaChevronDown size={12} />
+                                    {/* <FaChevronDown size={12} /> */}
                                 </HStack>
                             </Badge>
                         </MenuButton>
-                        <MenuList p={1} style={{ minWidth: "fit-content" }}>
+                        {/* <MenuList p={1} style={{ minWidth: "fit-content" }}>
                             <MenuItem
                                 borderRadius={5}
                                 onClick={async () => {
@@ -130,7 +131,7 @@ function Navigation() {
                                     </Text>
                                 </HStack>
                             </MenuItem>
-                        </MenuList>
+                        </MenuList> */}
                     </Menu>
                 </HStack>
 
