@@ -4,7 +4,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { IoSwapVertical } from "react-icons/io5";
 import { FaWallet } from "react-icons/fa";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Montserrat } from "next/font/google";
 import { MdOutlineContentCopy } from "react-icons/md";
 import trimAddress from "@/utils/trimAddress";
 import UseWalletConnection from "@/hooks/useWallet";
@@ -32,13 +31,6 @@ import ReceivedAssetModal from "./receiveAssetModal";
 import useGetUserBalance from "@/hooks/data/useGetUserBalance";
 import useCollection from "@letscook/sdk/dist/hooks/data/useCollection";
 
-const montserrat = Montserrat({
-    weight: ["500", "600", "700", "800", "900"],
-    subsets: ["latin"],
-    display: "swap",
-    fallback: ["Arial", "sans-serif"],
-    variable: "--font-montserrat",
-});
 
 const Joy = () => {
     const wallet = useWallet();
@@ -194,7 +186,7 @@ const Joy = () => {
 
     return (
         <main
-            className={`relative flex min-h-full w-full items-center justify-center py-16 text-white ${montserrat.className}`}
+            className={`relative flex min-h-full w-full items-center justify-center py-16 text-white`}
             style={{ background: "linear-gradient(180deg, #5DBBFF 0%, #0076CC 100%)" }}
         >
             {/* Header */}
@@ -326,7 +318,7 @@ const Joy = () => {
                                 className={`flex transform items-center justify-center gap-16 rounded-2xl bg-clip-padding transition-all duration-500 md:p-8 xl:bg-[#00357A]/75 xl:px-16 xl:shadow-2xl xl:backdrop-blur-sm xl:backdrop-filter ${isHomePage ? "scale-80 opacity-0" : "scale-100 opacity-100"} `}
                             >
                                 <div className="hidden w-[320px] flex-col items-center justify-center gap-2 xl:flex">
-                                    <p className="font-face-wc text-6xl">{collection.token_symbol}</p>
+                                    <p className="text-6xl font-face-wc">{collection.token_symbol}</p>
 
                                     <Image
                                         src={tokenMint.icon}
@@ -431,9 +423,9 @@ const Joy = () => {
                                 </div>
 
                                 <div className="w-full rounded-2xl border border-t-[3px] border-t-[#FFDD56] bg-[#00357A]/75 p-4 text-white shadow-2xl md:w-[400px] xl:bg-transparent">
-                                    <div className="mx-auto mb-4 flex w-fit flex-col items-center gap-2">
-                                        <p className="font-face-wc mx-auto w-fit text-3xl">Transmogrify</p>
-                                        <div className="text-md flex items-center gap-1">
+                                    <div className="flex flex-col items-center gap-2 mx-auto mb-4 w-fit">
+                                        <p className="mx-auto text-3xl font-face-wc w-fit">Transmogrify</p>
+                                        <div className="flex items-center gap-1 text-md">
                                             <p>
                                                 {!isTokenToNFT
                                                     ? `1 NFT = ${parseFloat(formatPrice(outAmount, 2)).toLocaleString(
@@ -467,7 +459,7 @@ const Joy = () => {
                                     <div className={`flex ${isTokenToNFT ? "flex-col" : "flex-col-reverse"}`}>
                                         {/* From Token Input */}
                                         <div className={`${isTokenToNFT ? "" : "-mt-6 mb-3"}`}>
-                                            <div className="mb-2 flex items-center justify-between">
+                                            <div className="flex items-center justify-between mb-2">
                                                 <div className="text-sm">{isTokenToNFT ? `You're Swapping` : "To Receive"}</div>
 
                                                 <div className="flex items-center gap-1 opacity-75">
@@ -478,7 +470,7 @@ const Joy = () => {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 rounded-xl bg-gray-800 p-3">
+                                            <div className="flex items-center gap-2 p-3 bg-gray-800 rounded-xl">
                                                 <div className="flex flex-col gap-2">
                                                     <button className="flex items-center gap-2 rounded-lg bg-gray-700 px-2.5 py-1.5">
                                                         <div className="w-6">
@@ -495,7 +487,7 @@ const Joy = () => {
                                                 </div>
                                                 <input
                                                     type="text"
-                                                    className="w-full cursor-not-allowed bg-transparent text-right text-xl text-gray-500 focus:outline-none"
+                                                    className="w-full text-xl text-right text-gray-500 bg-transparent cursor-not-allowed focus:outline-none"
                                                     placeholder="0"
                                                     value={
                                                         isTokenToNFT
@@ -522,7 +514,7 @@ const Joy = () => {
                                         <div className="flex justify-center">
                                             <button
                                                 onClick={() => setIsTokenToNFT(!isTokenToNFT)}
-                                                className="z-50 mx-auto my-2 cursor-pointer rounded-lg bg-gray-800 p-2 hover:bg-gray-700"
+                                                className="z-50 p-2 mx-auto my-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700"
                                             >
                                                 <IoSwapVertical size={18} className="opacity-75" />
                                             </button>
@@ -530,7 +522,7 @@ const Joy = () => {
 
                                         {/* To Token Input */}
                                         <div className={`${!isTokenToNFT ? "" : "-mt-6 mb-3"}`}>
-                                            <div className="mb-2 flex items-center justify-between">
+                                            <div className="flex items-center justify-between mb-2">
                                                 <div className="text-sm">{!isTokenToNFT ? `You're Swapping` : "To Receive"}</div>
 
                                                 <div className="flex items-center gap-1 opacity-75">
@@ -541,7 +533,7 @@ const Joy = () => {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 rounded-xl bg-gray-800 p-3">
+                                            <div className="flex items-center gap-2 p-3 bg-gray-800 rounded-xl">
                                                 <button className="flex items-center gap-2 rounded-lg bg-gray-700 px-2.5 py-1.5">
                                                     <div className="w-6">
                                                         <Image
@@ -556,7 +548,7 @@ const Joy = () => {
                                                 </button>
                                                 <input
                                                     type="text"
-                                                    className="w-full cursor-not-allowed bg-transparent text-right text-xl text-gray-500 focus:outline-none"
+                                                    className="w-full text-xl text-right text-gray-500 bg-transparent cursor-not-allowed focus:outline-none"
                                                     placeholder="0"
                                                     value={1}
                                                     onChange={(e) => {
@@ -641,7 +633,7 @@ const Joy = () => {
                                         </button>
                                     )}
 
-                                    <div className="mt-4 flex flex-col gap-2 text-sm">
+                                    <div className="flex flex-col gap-2 mt-4 text-sm">
                                         <div className="flex justify-between opacity-75">
                                             <span>NFTs Available</span>
                                             <span>{collection.num_available}</span>
@@ -686,14 +678,14 @@ const Joy = () => {
                                 </div>
 
                                 <div className="hidden w-[320px] flex-col items-center justify-center gap-2 xl:flex">
-                                    <p className="font-face-wc text-6xl">{collection.collection_name}</p>
+                                    <p className="text-6xl font-face-wc">{collection.collection_name}</p>
 
                                     <Image
                                         src={collection.collection_icon_url}
                                         width={225}
                                         height={225}
                                         alt="$JOY Icon"
-                                        className="rounded-xl shadow-xl"
+                                        className="shadow-xl rounded-xl"
                                     />
                                     <p className="text-lg">Collection Address: {trimAddress(collectionAddress.toString())}</p>
                                     <div className="flex gap-2">

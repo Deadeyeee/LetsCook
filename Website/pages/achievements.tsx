@@ -7,6 +7,7 @@ import { Text } from "@chakra-ui/react";
 import useResponsive from "@/hooks/useResponsive";
 import useCurrentUserData from "@/hooks/data/useCurrentUserData";
 import { useWallet } from "@solana/wallet-adapter-react";
+import Image from "next/image";
 
 export interface IAchievement {
     id: number;
@@ -159,8 +160,8 @@ const TutorialDialog: React.FC<{ videoUrl?: string }> = ({ videoUrl }) => {
     return (
         <Dialog>
             <DialogTrigger asChild>
-                {/* <Button variant="outline" size="icon" className="-mt-1 ml-2">
-                    <Video className="h-4 w-4" />
+                {/* <Button variant="outline" size="icon" className="ml-2 -mt-1">
+                    <Video className="w-4 h-4" />
                 </Button> */}
 
                 <Button className="py-6 text-lg">Watch Guide</Button>
@@ -170,7 +171,7 @@ const TutorialDialog: React.FC<{ videoUrl?: string }> = ({ videoUrl }) => {
                     <DialogTitle>Achievement Tutorial</DialogTitle>
                 </DialogHeader>
                 <div className="aspect-video">
-                    <video controls className="h-full w-full" src={videoUrl}>
+                    <video controls className="w-full h-full" src={videoUrl}>
                         Your browser does not support the video tag.
                     </video>
                 </div>
@@ -187,8 +188,8 @@ export const AchievementsScreen = () => {
 
     return (
         <main className="px-4 md:p-8">
-            <div className="mb-4 flex flex-col gap-4 lg:gap-0" style={{ marginTop: sm ? 16 : 0 }}>
-                <Text className="block text-center text-3xl font-semibold text-white lg:text-4xl" align={"center"}>
+            <div className="flex flex-col gap-4 mb-4 lg:gap-0" style={{ marginTop: sm ? 16 : 0 }}>
+                <Text className="block text-3xl font-semibold text-center text-white lg:text-4xl" align={"center"}>
                     Achievements
                 </Text>
             </div>
@@ -200,7 +201,7 @@ export const AchievementsScreen = () => {
                         className={`mb-3 flex bg-[#161616] bg-opacity-75 bg-clip-padding ${sm ? "py-4" : "py-0"} shadow-2xl backdrop-blur-sm backdrop-filter transition-all duration-300 md:border-l-[3px] md:border-orange-700`}
                     >
                         <div className="p-4">
-                            <img
+                            <Image
                                 src={achievement.badgeImage}
                                 alt={achievement.title}
                                 className={`h-20 w-20 rounded-lg object-cover md:h-24 md:w-24`}
@@ -213,16 +214,16 @@ export const AchievementsScreen = () => {
                                     <h3 className="text-xl font-semibold text-white md:text-2xl">{achievement.title}</h3>
                                     {/* <TutorialDialog videoUrl={achievement.tutorialVideoUrl} /> */}
                                 </div>
-                                <p className="text-muted-foreground text-white md:text-lg">{achievement.description}</p>
+                                <p className="text-white text-muted-foreground md:text-lg">{achievement.description}</p>
                             </div>
 
                             {achievements[i] ? (
-                                <div className="mr-6 mt-2 flex items-center gap-2 md:mt-0">
+                                <div className="flex items-center gap-2 mt-2 mr-6 md:mt-0">
                                     <Check size={sm ? 32 : 40} color="#90EE90" />
                                     <p className="-mt-1 text-xl text-white md:text-2xl">Completed</p>
                                 </div>
                             ) : (
-                                // <div className="mr-6 mt-2 flex items-center gap-2 md:mt-0">
+                                // <div className="flex items-center gap-2 mt-2 mr-6 md:mt-0">
                                 //     <img
                                 //         src="/images/sauce.png"
                                 //         alt="Sauce"
@@ -230,7 +231,7 @@ export const AchievementsScreen = () => {
                                 //     />
                                 //     <p className="text-lg text-white md:text-2xl"> {achievement.sauce}</p>
                                 // </div>
-                                <div className="mr-6 mt-2 flex items-center gap-2 md:mt-0">
+                                <div className="flex items-center gap-2 mt-2 mr-6 md:mt-0">
                                     <TutorialDialog videoUrl={achievement.tutorialVideoUrl} />
                                 </div>
                             )}

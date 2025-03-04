@@ -1,6 +1,5 @@
 import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Montserrat } from "next/font/google";
 import Image from "next/image";
 import { Loader } from "lucide-react";
 import { CollectionKeys, Config, SYSTEM_KEY } from "@/components/Solana/constants";
@@ -28,13 +27,6 @@ import { FaCoins } from "react-icons/fa";
 import { bignum_to_num } from "@/components/Solana/state";
 import useCollection from "@letscook/sdk/dist/hooks/data/useCollection";
 
-const montserrat = Montserrat({
-    weight: ["500", "600", "700", "800", "900"],
-    subsets: ["latin"],
-    display: "swap",
-    fallback: ["Arial", "sans-serif"],
-    variable: "--font-montserrat",
-});
 
 const gridItemStyle: CSSProperties = {
     position: "relative",
@@ -296,7 +288,7 @@ const LandingPage = () => {
                                             style={gridItemStyle}
                                             onMouseEnter={() => handleMouseEnter(index)}
                                             onMouseLeave={handleMouseLeave}
-                                            className="relative overflow-hidden p-2"
+                                            className="relative p-2 overflow-hidden"
                                         >
                                             {/* Mercenary Level Banner */}
                                             <div className="absolute -right-8 top-4 z-10 rotate-45 bg-[#8B7355] px-8 py-1 text-sm text-[#1C1410]">
@@ -324,7 +316,7 @@ const LandingPage = () => {
                                             </div>
 
                                             {/* Action Buttons */}
-                                            <div className="mt-4 flex flex-col gap-2">
+                                            <div className="flex flex-col gap-2 mt-4">
                                                 <VStack>
                                                     {onMission && (
                                                         <button
@@ -428,9 +420,9 @@ const LandingPage = () => {
     if (!collection) return <PageNotFound />;
 
     return (
-        <main className={`relative min-h-screen w-full ${montserrat.className}`}>
+        <main className={`relative min-h-screen w-full`}>
             {/* Background Image */}
-            <div className="absolute inset-0 h-full w-full">
+            <div className="absolute inset-0 w-full h-full">
                 <Image
                     src="/curatedLaunches/citizens/tavern.png"
                     alt="Background"
@@ -444,8 +436,8 @@ const LandingPage = () => {
 
             {!showInteractive ? (
                 // Main Landing Content
-                <div className="relative z-20 flex min-h-screen w-full flex-col items-center justify-center">
-                    <div className="w-full max-w-7xl px-4">
+                <div className="relative z-20 flex flex-col items-center justify-center w-full min-h-screen">
+                    <div className="w-full px-4 max-w-7xl">
                         {nftBalance === 0 && (!userData || userData.asset.equals(SYSTEM_KEY)) ? (
                             <div className="flex flex-col items-center gap-6">
                                 <div className="rounded-xl border-2 border-[#3A2618] bg-[#1C1410]/90 p-6 text-center backdrop-blur-sm">
@@ -480,8 +472,8 @@ const LandingPage = () => {
                 </div>
             ) : (
                 // Recruit Interface
-                <div className="relative z-20 flex min-h-screen w-full flex-col items-center justify-center py-16">
-                    <div className="absolute top-0 z-50 flex min-h-20 w-full items-center xl:h-24">
+                <div className="relative z-20 flex flex-col items-center justify-center w-full min-h-screen py-16">
+                    <div className="absolute top-0 z-50 flex items-center w-full min-h-20 xl:h-24">
                         <button
                             onClick={() => setShowInteractive(false)}
                             className="absolute left-4 transform rounded-lg border-2 border-[#3A2618] bg-gradient-to-b from-[#8B7355] to-[#3A2618] px-4 py-2 text-sm font-bold text-[#1C1410] transition-all hover:from-[#C4A484] hover:to-[#8B7355] active:scale-95"
