@@ -26,7 +26,6 @@ import { DEBUG, Config, PROGRAM, LaunchKeys, Socials, Extensions } from "./const
 import { Box } from "@chakra-ui/react";
 
 import BN from "bn.js";
-import bs58 from "bs58";
 
 import { WalletDisconnectButton } from "@solana/wallet-adapter-react-ui";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, Mint } from "@solana/spl-token";
@@ -35,19 +34,8 @@ import { JoinData, LaunchData } from "@letscook/sdk/dist/state/launch";
 import { ListingData } from "@letscook/sdk/dist/state/listing";
 
 export async function get_JWT_token(): Promise<any | null> {
-    const token_url = `/.netlify/functions/jwt`;
-
-    var token_result;
-    try {
-        token_result = await fetch(token_url).then((res) => res.json());
-    } catch (error) {
-        console.log(error);
-        return null;
-    }
-
-    if (DEBUG) console.log(token_result);
-
-    return token_result;
+    // JWT token functionality removed
+    return null;
 }
 
 export function WalletConnected() {
@@ -384,7 +372,8 @@ export async function request_current_balance(bearer: string, pubkey: PublicKey)
     }
 
     if (account_info_result["result"]["value"] == null || account_info_result["result"]["value"]["lamports"] == null) {
-        console.log("Error getting lamports for ", pubkey.toString());
+        console.log("🔍 [BALANCE CHECK] Account not found or no lamports data for:", pubkey.toString());
+        console.log("🔍 [BALANCE CHECK] This is normal for new accounts that haven't been created yet");
         return 0;
     }
 
@@ -622,7 +611,6 @@ export function getLaunchTypeIndex(launch_type: string): number {
             return 1;
     }
 }
-
 
 export interface JoinedLaunch {
     join_data: JoinData;
@@ -968,7 +956,7 @@ export async function RunGPA(): Promise<GPAccount[]> {
         return [];
     }
 
-    //console.log(program_accounts_result["result"]);
+    console.log("program Accounts: ", program_accounts_result["result"]);
 
     let result = [];
     for (let i = 0; i < program_accounts_result["result"]?.length; i++) {

@@ -8,7 +8,7 @@ export interface NetworkConfig {
     RAYDIUM_FEES: PublicKey;
     RPC_NODE: string;
     WSS_NODE: string;
-    AURA : string;
+    AURA: string;
     COOK_FEES: PublicKey;
     // its useful to define a few strings and images here given we have eth on eclipse and sol on solana
     token: string;
@@ -37,7 +37,7 @@ const EclipseMainNetConfig: NetworkConfig = {
     NETWORK: "eclipse",
     FEES_KEY: new PublicKey("FxVpjJ5AGY6cfCwZQP5v8QBfS4J2NPa62HbGh1Fu2LpD"),
     RAYDIUM_FEES: new PublicKey("3XMrhbv989VxAMi3DErLV9eJht1pHppW5LbKxe9fkEFR"),
-    RPC_NODE: "https:///eclipse.lgns.net/",
+    RPC_NODE: "https://mainnetbeta-rpc.eclipse.xyz",
     WSS_NODE: "wss://mainnetbeta-rpc.eclipse.xyz/",
     AURA: "https://aura-eclipse-mainnet.metaplex.com/",
     COOK_FEES: new PublicKey("FxVpjJ5AGY6cfCwZQP5v8QBfS4J2NPa62HbGh1Fu2LpD"),
@@ -86,6 +86,7 @@ export const PROGRAM = new PublicKey("Cook7kyoaKaiG57VBDUjE2KuPXrWdLEu7d3FdDgsij
 export const SYSTEM_KEY = new PublicKey("11111111111111111111111111111111");
 export const CORE = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 export const WRAPPED_SOL = new PublicKey("So11111111111111111111111111111111111111112");
+export const BITZ = new PublicKey("64mggk2nXg6vHC1qCdsZdEFzd5QGN4id54Vbho4PswCF");
 
 // account seeds
 export const SOL_ACCOUNT_SEED = 59957379;
@@ -107,7 +108,7 @@ if (isMobile) {
 
 export const DEBUG = true;
 
-export let Config = MainNetConfig;
+export let Config = EclipseMainNetConfig;
 
 export const enum Screen {
     HOME_SCREEN = 0,

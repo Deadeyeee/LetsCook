@@ -37,16 +37,17 @@ const tabs = {
     ],
 
     trade: [
-        {
-            icon: (size: number) => <BsPersonSquare size={size} />,
-            tab: "Collections",
-            url: "/collections",
-        },
-        {
-            icon: (size: number) => <FaChartLine size={size} />,
-            tab: "Tokens",
-            url: "/trade",
-        },
+        // Temporarily disabled for performance
+        // {
+        //     icon: (size: number) => <BsPersonSquare size={size} />,
+        //     tab: "Collections",
+        //     url: "/collections",
+        // },
+        // {
+        //     icon: (size: number) => <FaChartLine size={size} />,
+        //     tab: "Tokens",
+        //     url: "/trade",
+        // },
     ],
 
     profile: [

@@ -30,9 +30,9 @@ import useMintNFT from "./useMintNFT";
 import { toast } from "react-toastify";
 import useSendTransaction from "../useSendTransaction";
 import { getMintData } from "@/components/amm/launch";
-import { CollectionData } from "@letscook/sdk/dist/state/collections";
+import { CollectionData2 } from "../../components/collection/collectionState";
 
-const useMintRandom = (launchData: CollectionData, updateData: boolean = false) => {
+const useMintRandom = (launchData: CollectionData2, updateData: boolean = false) => {
     const wallet = useWallet();
     const { sendTransaction, isLoading } = useSendTransaction();
 

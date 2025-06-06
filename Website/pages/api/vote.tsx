@@ -156,15 +156,7 @@ export default async function handler(req, res) {
                     "Vote will be stored on chain.  One vote per user.  User account wil be created if it does not exist.  For more info visit letscook.wtf!",
             };
 
-            await fetch("https://letscook.wtf/.netlify/functions/update_listings", {
-                method: "POST",
-                body: JSON.stringify({
-                    address: mint,
-                }),
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            });
+            // Listing update functionality removed
             res.status(200).json(processedData);
         } catch (error) {
             console.error("Error processing request:", error);

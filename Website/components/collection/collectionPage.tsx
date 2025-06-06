@@ -42,8 +42,11 @@ import { toast } from "react-toastify";
 import { RxSlash } from "react-icons/rx";
 import Image from "next/image";
 import useEditCollection from "../../hooks/collections/useEditCollection";
-import { TaggedFile } from "@irys/sdk/build/cjs/web/upload";
-import useIrysUploader from "../../hooks/useIrysUploader";
+import { useIrysUploader } from "../../hooks/useIrysUploader";
+
+type TaggedFile = File & {
+    tags?: { name: string; value: string }[];
+};
 import { Button } from "../ui/button";
 
 interface CollectionPageProps {
@@ -74,7 +77,7 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
 
     const { EditCollection } = useEditCollection();
 
-    const { getIrysUploader } = useIrysUploader(wallet);
+    const { irysUploader, isLoading: irysLoading, uploadFiles } = useIrysUploader();
 
     const handleNameChange = (e) => {
         setName(e.target.value);
@@ -101,13 +104,14 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
 
     const check_signature_update = useCallback(
         async (result: any) => {
-            console.log(result);
+            console.log("🔔 [SIGNATURE UPDATE] Signature confirmation received:", result);
             // if we have a subscription field check against ws_id
 
             signature_ws_id.current = null;
             setIsLoading(false);
 
             if (result.err !== null) {
+                console.error("❌ [SIGNATURE UPDATE] Transaction failed with error:", result.err);
                 toast.error("Transaction failed, please try again", {
                     type: "error",
                     isLoading: false,
@@ -116,13 +120,26 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
                 return;
             }
 
+            console.log("✅ [SIGNATURE UPDATE] Main transaction confirmed successfully");
             toast.success("Launch (1/2) Complete", {
                 type: "success",
                 isLoading: false,
                 autoClose: 3000,
             });
 
-            await EditCollection();
+            console.log("🔵 [SIGNATURE UPDATE] Calling EditCollection for step 2...");
+            try {
+                await EditCollection();
+                console.log("✅ [SIGNATURE UPDATE] EditCollection completed successfully");
+            } catch (error) {
+                console.error("❌ [SIGNATURE UPDATE] Error in EditCollection:", {
+                    error: error.message,
+                    stack: error.stack,
+                    name: error.name,
+                    cause: error.cause,
+                });
+                toast.error("Error in collection finalization: " + error.message);
+            }
         },
         [EditCollection],
     );
@@ -223,29 +240,47 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
     }
 
     const CreateLaunch = useCallback(async () => {
-        if (wallet.publicKey === null || wallet.signTransaction === undefined) return;
+        console.log("🚀 [COLLECTION CREATION] Starting collection creation process...");
 
-        const irys = await getIrysUploader();
+        if (wallet.publicKey === null || wallet.signTransaction === undefined) {
+            console.error("❌ [COLLECTION CREATION] Wallet not connected or unable to sign transactions");
+            return;
+        }
 
-        console.log(newCollectionData.current.icon_url);
-        console.log(newCollectionData.current.banner_url);
+        console.log("🔵 [COLLECTION CREATION] Wallet connected:", wallet.publicKey.toString());
+
+        console.log("🔵 [COLLECTION CREATION] Collection data check:");
+        console.log("🔵 [COLLECTION CREATION] Icon URL:", newCollectionData.current.icon_url);
+        console.log("🔵 [COLLECTION CREATION] Banner URL:", newCollectionData.current.banner_url);
+        console.log("🔵 [COLLECTION CREATION] Edit mode:", newCollectionData.current.edit_mode);
+
         // if this is in edit mode then just call that function
         if (newCollectionData.current.edit_mode === true) {
+            console.log("🔵 [COLLECTION CREATION] Edit mode detected, calling EditCollection...");
             await EditCollection();
             return;
         }
 
         // check if the launch account already exists, if so just skip all this
+        console.log("🔵 [COLLECTION CREATION] Checking if launch account already exists...");
         let test_launch_data_account = PublicKey.findProgramAddressSync(
             [Buffer.from(newCollectionData.current.pagename), Buffer.from("Collection")],
             PROGRAM,
         )[0];
 
+        console.log("🔵 [COLLECTION CREATION] Test launch data account:", test_launch_data_account.toString());
+        console.log("🔵 [COLLECTION CREATION] Requesting balance for launch account...");
+
         let account_balance = await request_current_balance("", test_launch_data_account);
+        console.log("🔵 [COLLECTION CREATION] Launch account balance:", account_balance);
+
         if (account_balance > 0) {
+            console.log("🔵 [COLLECTION CREATION] Account already exists, calling EditCollection...");
             await EditCollection();
             return;
         }
+
+        console.log("✅ [COLLECTION CREATION] Launch account doesn't exist yet, proceeding with creation...");
 
         setIsLoading(true);
 
@@ -254,7 +289,7 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
         let feeMicroLamports = await getRecentPrioritizationFees(Config.PROD);
 
         if (newCollectionData.current.icon_url == "" || newCollectionData.current.banner_url == "") {
-            const uploadImageToArweave = toast.loading("(1/4) Preparing to upload images - transferring balance to Arweave.");
+            console.log("🔵 [IMAGE UPLOAD] Starting image upload process...");
 
             let file_list: File[] = [];
             file_list.push(newCollectionData.current.icon_file);
@@ -263,241 +298,44 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
                 file_list.push(newCollectionData.current.nft_images[i]);
             }
 
-            // Convert to TaggedFile objects
-            const taggedFiles = file_list.map((f: TaggedFile, index: number) => {
-                f.tags = [{ name: "Content-Type", value: file_list[index].type }];
-                return f;
-            });
+            console.log("🔵 [IMAGE UPLOAD] Files to upload:", file_list.length);
+            console.log(
+                "🔵 [IMAGE UPLOAD] Total size:",
+                file_list.reduce((sum, f) => sum + f.size, 0),
+                "bytes",
+            );
 
-            let atomic_price;
-            let size = 0;
             try {
-                for (let i = 0; i < taggedFiles.length; i++) {
-                    size += taggedFiles[i].size;
-                }
-                atomic_price = await irys.getPrice(Math.ceil(1.1 * size));
-                let price = irys.utils.fromAtomic(atomic_price);
-                console.log("Uploading ", size, " bytes for ", price);
-            } catch (e) {
-                toast.update(uploadImageToArweave, {
-                    render: e,
-                    type: "error",
-                    isLoading: false,
-                    autoClose: 3000,
-                });
-                setIsLoading(false);
+                const receipt = await uploadFiles(file_list, "images");
 
+                if (!receipt) {
+                    console.error("❌ [IMAGE UPLOAD] Upload failed - no receipt returned");
+                    setIsLoading(false);
+                    return;
+                }
+
+                console.log("✅ [IMAGE UPLOAD] Upload successful, manifest ID:", receipt.manifestId);
+
+                let manifestId = receipt.manifestId;
+                let icon_url = "https://gateway.irys.xyz/" + manifestId + "/" + newCollectionData.current.icon_file.name;
+                let banner_url = "https://gateway.irys.xyz/" + manifestId + "/" + newCollectionData.current.banner_file.name;
+
+                newCollectionData.current.icon_url = icon_url;
+                newCollectionData.current.banner_url = banner_url;
+                newCollectionData.current.nft_image_url = "https://gateway.irys.xyz/" + manifestId + "/";
+
+                console.log("✅ [IMAGE UPLOAD] URLs set successfully");
+            } catch (error) {
+                console.error("❌ [IMAGE UPLOAD] Failed to upload images:", error);
+                toast.error("Failed to upload images: " + error.message);
+                setIsLoading(false);
                 return;
             }
-
-            // console.log("balance_before", balance_before.toString());
-            if (!newCollectionData.current.image_payment) {
-                try {
-                    let txArgs = await get_current_blockhash("");
-                    let irys_address = await irys.utils.getBundlerAddress();
-
-                    var tx = new Transaction(txArgs).add(
-                        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: feeMicroLamports }),
-                        SystemProgram.transfer({
-                            fromPubkey: wallet.publicKey,
-                            toPubkey: new PublicKey(irys_address),
-                            lamports: Number(atomic_price),
-                        }),
-                    );
-                    tx.feePayer = wallet.publicKey;
-                    let signed_transaction = await wallet.signTransaction(tx);
-                    var signature = await connection.sendRawTransaction(signed_transaction.serialize(), { skipPreflight: true });
-
-                    if (signature === undefined) {
-                        console.log(signature);
-                        toast.error("Transaction failed, please try again");
-                        return;
-                    }
-
-                    let fund_check = await irys.funder.submitFundTransaction(signature);
-
-                    console.log(fund_check, fund_check.data);
-                    newCollectionData.current.image_payment = true;
-                    toast.update(uploadImageToArweave, {
-                        render: "Your account has been successfully funded.",
-                        type: "success",
-                        isLoading: false,
-                        autoClose: 2000,
-                    });
-                } catch (error) {
-                    toast.update(uploadImageToArweave, {
-                        render: "Oops! Something went wrong during funding. Please try again later. ",
-                        type: "error",
-                        isLoading: false,
-                        autoClose: 3000,
-                    });
-                    setIsLoading(false);
-
-                    return;
-                }
-            }
-            let manifestId;
-
-            let num_blocks = Math.ceil(size / 1024 / 1024 / 1024);
-            console.log("num_blocks", num_blocks);
-            if (num_blocks > 1) {
-                let blocks: File[][] = [];
-                let block_tags: Tag[][] = [];
-                let current_block: File[] = [];
-                let current_tags: Tag[] = [];
-                let current_block_size = 0;
-                for (let i = 0; i < file_list.length; i++) {
-                    if (current_block_size + file_list[i].size > 1024 * 1024 * 1024) {
-                        blocks.push(current_block);
-                        block_tags.push(current_tags);
-                        current_block = [];
-                        current_tags = [];
-
-                        current_block_size = 0;
-                    }
-                    current_block.push(file_list[i]);
-                    current_tags.push({ name: "Content-Type", value: file_list[i].type });
-
-                    current_block_size += file_list[i].size;
-                }
-
-                if (current_block.length > 0) {
-                    blocks.push(current_block);
-                }
-                console.log("size: ", size / 1024 / 1024 / 1024, num_blocks);
-                console.log(blocks);
-
-                let tags: Tag[] = [];
-
-                for (let i = 0; i < file_list.length; i++) {
-                    tags.push({ name: "Content-Type", value: file_list[i].type });
-                }
-
-                const uploadToArweave = toast.loading("Uploading images on Arweave in " + num_blocks + " blocks");
-
-                try {
-                    for (let i = newCollectionData.current.images_uploaded; i < blocks.length; i++) {
-                        const { manifest } = await irys.uploadFolder(blocks[i], {
-                            //@ts-ignore
-                            tags: block_tags[i],
-                        });
-
-                        if (newCollectionData.current.manifest === null) {
-                            newCollectionData.current.manifest = manifest;
-                        } else {
-                            newCollectionData.current.manifest.paths = { ...newCollectionData.current.manifest.paths, ...manifest.paths };
-                        }
-                        console.log(newCollectionData.current.manifest);
-                        newCollectionData.current.images_uploaded += 1;
-                    }
-                    console.log(newCollectionData.current.manifest);
-                } catch (error) {
-                    console.log(error);
-                    toast.update(uploadToArweave, {
-                        render: "Error uploading images",
-                        type: "error",
-                        isLoading: false,
-                        autoClose: 2000,
-                    });
-                    setIsLoading(false);
-                }
-                toast.update(uploadToArweave, {
-                    render: "Images uploaded to arweave.  Uploading manifest.",
-                    type: "success",
-                    isLoading: false,
-                    autoClose: 2000,
-                });
-
-                const manifestjsn = JSON.stringify(newCollectionData.current.manifest);
-                const manifestBlob = new Blob([manifestjsn], { type: "application/json" });
-                const manifestFile = new File([manifestBlob], "metadata.json");
-
-                let manifestPrice = await irys.getPrice(Math.ceil(1.1 * manifestFile.size));
-                try {
-                    let txArgs = await get_current_blockhash("");
-                    let irys_address = await irys.utils.getBundlerAddress();
-
-                    var tx = new Transaction(txArgs).add(
-                        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: feeMicroLamports }),
-                        SystemProgram.transfer({
-                            fromPubkey: wallet.publicKey,
-                            toPubkey: new PublicKey(irys_address),
-                            lamports: Number(manifestPrice),
-                        }),
-                    );
-                    tx.feePayer = wallet.publicKey;
-                    let signed_transaction = await wallet.signTransaction(tx);
-                    var signature = await connection.sendRawTransaction(signed_transaction.serialize(), { skipPreflight: true });
-
-                    if (signature === undefined) {
-                        console.log(signature);
-                        toast.error("Transaction failed, please try again");
-                        return;
-                    }
-
-                    let fund_check = await irys.funder.submitFundTransaction(signature);
-                    console.log(fund_check, fund_check.data);
-                    toast.update(uploadImageToArweave, {
-                        render: "Manifest has been successfully funded.",
-                        type: "success",
-                        isLoading: false,
-                        autoClose: 2000,
-                    });
-                } catch (error) {
-                    toast.update(uploadImageToArweave, {
-                        render: "Oops! Something went wrong during funding. Please try again later. ",
-                        type: "error",
-                        isLoading: false,
-                        autoClose: 3000,
-                    });
-                    setIsLoading(false);
-
-                    return;
-                }
-
-                const manifestRes = await irys.upload(JSON.stringify(newCollectionData.current.manifest), {
-                    tags: [
-                        { name: "Type", value: "manifest" },
-                        { name: "Content-Type", value: "application/x.irys-manifest+json" },
-                    ],
-                });
-                console.log("manifestRes", manifestRes);
-
-                manifestId = manifestRes.id;
-            } else {
-                let receipt;
-                try {
-                    receipt = await irys.uploadFolder(taggedFiles, {});
-
-                    toast.success("Images have been uploaded successfully! View: https://gateway.irys.xyz/${receipt.id}", {
-                        type: "success",
-                        isLoading: false,
-                        autoClose: 2000,
-                    });
-                } catch (error) {
-                    console.log(error);
-                    toast.error("Failed to upload images, please try again later.", {
-                        type: "error",
-                        isLoading: false,
-                        autoClose: 3000,
-                    });
-                    setIsLoading(false);
-
-                    return;
-                }
-
-                manifestId = receipt.manifestId;
-            }
-            let icon_url = "https://gateway.irys.xyz/" + manifestId + "/" + newCollectionData.current.icon_file.name;
-            let banner_url = "https://gateway.irys.xyz/" + manifestId + "/" + newCollectionData.current.banner_file.name;
-
-            newCollectionData.current.icon_url = icon_url;
-            newCollectionData.current.banner_url = banner_url;
-            newCollectionData.current.nft_image_url = "https://gateway.irys.xyz/" + manifestId + "/";
         }
 
         if (newCollectionData.current.uri == "") {
-            // console.log(icon_url, banner_url);
+            console.log("🔵 [METADATA UPLOAD] Starting metadata upload process...");
+
             var metadata = {
                 name: newCollectionData.current.collection_name,
                 symbol: newCollectionData.current.collection_symbol,
@@ -512,128 +350,81 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
             let file_list: File[] = [];
             file_list.push(json_file);
 
-            let fr = new FileReader();
-            fr.onload = function () {
-                let parsedJSON = JSON.parse(fr.result.toString());
-                console.log(parsedJSON);
-                // your code to consume the json
-            };
+            console.log("🔵 [METADATA UPLOAD] Processing NFT metadata files:", newCollectionData.current.nft_metadata.length);
+
             for (let i = 0; i < newCollectionData.current.nft_metadata.length; i++) {
-                let text = await newCollectionData.current.nft_metadata[i].text();
-                let json = JSON.parse(text);
-                let index = newCollectionData.current.nft_metadata[i].name.split(".")[0];
-                //console.log("name", newCollectionData.current.nft_metadata[i].name)
-                json["image"] = newCollectionData.current.nft_image_url + index + newCollectionData.current.nft_type;
-                //console.log(json);
-
-                const blob = new Blob([JSON.stringify(json)], { type: "application/json" });
-                const json_file = new File([blob], newCollectionData.current.nft_metadata[i].name);
-                file_list.push(json_file);
-            }
-
-            // Convert to TaggedFile objects
-            const taggedFiles = file_list.map((f: TaggedFile) => {
-                f.tags = [{ name: "Content-Type", value: "application/json" }];
-                return f;
-            });
-
-            let size = 0;
-            for (let i = 0; i < taggedFiles.length; i++) {
-                size += taggedFiles[i].size;
-            }
-
-            console.log(taggedFiles);
-
-            const json_price = await irys.getPrice(10 * size);
-
-            const fundMetadata = toast.loading("(2/4) Preparing to upload token metadata - transferring balance to Arweave.");
-            if (!newCollectionData.current.metadata_payment) {
                 try {
-                    let txArgs = await get_current_blockhash("");
-                    let irys_address = await irys.utils.getBundlerAddress();
-
-                    var tx = new Transaction(txArgs).add(
-                        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: feeMicroLamports }),
-                        SystemProgram.transfer({
-                            fromPubkey: wallet.publicKey,
-                            toPubkey: new PublicKey(irys_address),
-                            lamports: Number(json_price),
-                        }),
+                    console.log(
+                        `🔵 [METADATA PROCESSING] Processing file ${i + 1}/${newCollectionData.current.nft_metadata.length}: ${newCollectionData.current.nft_metadata[i].name}`,
                     );
-                    tx.feePayer = wallet.publicKey;
-                    let signed_transaction = await wallet.signTransaction(tx);
-                    var signature = await connection.sendRawTransaction(signed_transaction.serialize(), { skipPreflight: true });
 
-                    if (signature === undefined) {
-                        console.log(signature);
-                        toast.error("Transaction failed, please try again");
-                        return;
-                    }
+                    let text = await newCollectionData.current.nft_metadata[i].text();
+                    console.log(`✅ [METADATA PROCESSING] File content read successfully, length: ${text.length} characters`);
 
-                    let fund_check = await irys.funder.submitFundTransaction(signature);
+                    let json = JSON.parse(text);
+                    console.log(`✅ [METADATA PROCESSING] JSON parsed successfully`);
 
-                    console.log(fund_check, fund_check.data["confirmed"]);
+                    let index = newCollectionData.current.nft_metadata[i].name.split(".")[0];
+                    json["image"] = newCollectionData.current.nft_image_url + index + newCollectionData.current.nft_type;
 
-                    //await irys.fund(json_price);
-                    toast.update(fundMetadata, {
-                        render: "Your account has been successfully funded.",
-                        type: "success",
-                        isLoading: false,
-                        autoClose: 2000,
-                    });
+                    const blob = new Blob([JSON.stringify(json)], { type: "application/json" });
+                    const processed_file = new File([blob], newCollectionData.current.nft_metadata[i].name);
+                    file_list.push(processed_file);
+
+                    console.log(`✅ [METADATA PROCESSING] File ${i + 1} processed successfully`);
                 } catch (error) {
-                    toast.update(fundMetadata, {
-                        render: "Something went wrong. Please try again later. ",
-                        type: "error",
-                        isLoading: false,
-                        autoClose: 3000,
-                    });
+                    console.error(
+                        `❌ [METADATA PROCESSING] Error processing file ${i + 1} (${newCollectionData.current.nft_metadata[i].name}):`,
+                        error,
+                    );
+                    toast.error(
+                        `Failed to process metadata file: ${newCollectionData.current.nft_metadata[i].name}. Please check the file format.`,
+                        {
+                            type: "error",
+                            isLoading: false,
+                            autoClose: 5000,
+                        },
+                    );
                     setIsLoading(false);
-
                     return;
                 }
             }
-            // Optional parameters
-            const uploadOptions = {};
 
-            const uploadMetadata = toast.loading("Sign to upload token metadata on Arweave");
-
-            let json_receipt;
+            console.log("🔵 [METADATA UPLOAD] Files to upload:", file_list.length);
+            console.log(
+                "🔵 [METADATA UPLOAD] Total size:",
+                file_list.reduce((sum, f) => sum + f.size, 0),
+                "bytes",
+            );
 
             try {
-                json_receipt = await irys.uploadFolder(taggedFiles, uploadOptions);
+                const json_receipt = await uploadFiles(file_list, "metadata");
 
-                toast.update(uploadMetadata, {
-                    render: `Token metadata has been uploaded successfully!
-                    View: https://gateway.irys.xyz/${json_receipt.id}`,
-                    type: "success",
-                    isLoading: false,
-                    pauseOnFocusLoss: false,
-                    autoClose: 2000,
-                });
+                if (!json_receipt) {
+                    console.error("❌ [METADATA UPLOAD] Upload failed - no receipt returned");
+                    setIsLoading(false);
+                    return;
+                }
+
+                console.log("✅ [METADATA UPLOAD] Upload successful, manifest ID:", json_receipt.manifestId);
+
+                let manifestId = json_receipt.manifestId;
+                let collection_meta_url = "https://gateway.irys.xyz/" + json_receipt.manifest.paths[json_file.name].id;
+
+                newCollectionData.current.uri = collection_meta_url;
+                newCollectionData.current.nft_metadata_url = "https://gateway.irys.xyz/" + manifestId + "/";
+
+                console.log(
+                    "✅ [METADATA UPLOAD] URLs set successfully:",
+                    newCollectionData.current.uri,
+                    newCollectionData.current.nft_metadata_url,
+                );
             } catch (error) {
-                console.log(error);
-                toast.update(uploadMetadata, {
-                    render: `Failed to upload token metadata, please try again later.`,
-                    type: "error",
-                    isLoading: false,
-                    autoClose: 3000,
-                });
+                console.error("❌ [METADATA UPLOAD] Failed to upload metadata:", error);
+                toast.error("Failed to upload metadata: " + error.message);
                 setIsLoading(false);
-
                 return;
             }
-
-            console.log(json_receipt);
-
-            let manifestId = json_receipt.manifestId;
-
-            let collection_meta_url = "https://gateway.irys.xyz/" + json_receipt.manifest.paths[json_file.name].id;
-
-            newCollectionData.current.uri = collection_meta_url;
-            newCollectionData.current.nft_metadata_url = "https://gateway.irys.xyz/" + manifestId + "/";
-
-            console.log(newCollectionData.current.uri, newCollectionData.current.nft_metadata_url);
         }
 
         let program_sol_account = PublicKey.findProgramAddressSync([uInt32ToLEBytes(SOL_ACCOUNT_SEED)], PROGRAM)[0];
@@ -654,47 +445,80 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
             whitelist_key = new PublicKey(newCollectionData.current.whitelist_key);
         }
 
-        const instruction_data = serialise_LaunchCollection_instruction(newCollectionData.current);
-
-        var account_vector = [
-            { pubkey: wallet.publicKey, isSigner: true, isWritable: true },
-            { pubkey: launch_data_account, isSigner: false, isWritable: true },
-
-            { pubkey: program_sol_account, isSigner: false, isWritable: true },
-
-            { pubkey: collection_mint_pubkey, isSigner: true, isWritable: true },
-            { pubkey: newCollectionData.current.token_mint, isSigner: false, isWritable: true },
-            { pubkey: team_wallet, isSigner: false, isWritable: false },
-            { pubkey: whitelist_key, isSigner: false, isWritable: false },
-        ];
-        account_vector.push({ pubkey: SYSTEM_KEY, isSigner: false, isWritable: true });
-        account_vector.push({ pubkey: CORE, isSigner: false, isWritable: false });
-
-        const list_instruction = new TransactionInstruction({
-            keys: account_vector,
-            programId: PROGRAM,
-            data: instruction_data,
-        });
-
-        let txArgs = await get_current_blockhash("");
-
-        let transaction = new Transaction(txArgs);
-        transaction.feePayer = wallet.publicKey;
-        transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: feeMicroLamports }));
-        transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
-
-        transaction.add(list_instruction);
-
-        transaction.partialSign(newCollectionData.current.token_keypair);
-
+        console.log("🔵 [COLLECTION CREATION] Creating transaction instruction...");
         const createLaunch = toast.info("(3/4) Setting up your launch accounts");
 
         try {
+            const instruction_data = serialise_LaunchCollection_instruction(newCollectionData.current);
+            console.log("✅ [COLLECTION CREATION] Instruction data serialized successfully");
+            console.log("🔵 [COLLECTION CREATION] Instruction data length:", instruction_data.length);
+
+            console.log("🔵 [COLLECTION CREATION] Building account vector...");
+            console.log("🔵 [COLLECTION CREATION] Wallet public key:", wallet.publicKey.toString());
+            console.log("🔵 [COLLECTION CREATION] Launch data account:", launch_data_account.toString());
+            console.log("🔵 [COLLECTION CREATION] Program SOL account:", program_sol_account.toString());
+            console.log("🔵 [COLLECTION CREATION] Collection mint pubkey:", collection_mint_pubkey.toString());
+            console.log("🔵 [COLLECTION CREATION] Token mint:", newCollectionData.current.token_mint.toString());
+            console.log("🔵 [COLLECTION CREATION] Team wallet:", team_wallet.toString());
+            console.log("🔵 [COLLECTION CREATION] Whitelist key:", whitelist_key.toString());
+
+            var account_vector = [
+                { pubkey: wallet.publicKey, isSigner: true, isWritable: true },
+                { pubkey: launch_data_account, isSigner: false, isWritable: true },
+                { pubkey: program_sol_account, isSigner: false, isWritable: true },
+                { pubkey: collection_mint_pubkey, isSigner: true, isWritable: true },
+                { pubkey: newCollectionData.current.token_mint, isSigner: false, isWritable: true },
+                { pubkey: team_wallet, isSigner: false, isWritable: false },
+                { pubkey: whitelist_key, isSigner: false, isWritable: false },
+            ];
+            account_vector.push({ pubkey: SYSTEM_KEY, isSigner: false, isWritable: true });
+            account_vector.push({ pubkey: CORE, isSigner: false, isWritable: false });
+
+            console.log("✅ [COLLECTION CREATION] Account vector built with", account_vector.length, "accounts");
+
+            const list_instruction = new TransactionInstruction({
+                keys: account_vector,
+                programId: PROGRAM,
+                data: instruction_data,
+            });
+            console.log("✅ [COLLECTION CREATION] Transaction instruction created");
+
+            console.log("🔵 [COLLECTION CREATION] Getting current blockhash...");
+            let txArgs = await get_current_blockhash("");
+            console.log("✅ [COLLECTION CREATION] Blockhash obtained:", txArgs);
+
+            console.log("🔵 [COLLECTION CREATION] Building transaction...");
+            let transaction = new Transaction(txArgs);
+            transaction.feePayer = wallet.publicKey;
+            transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: feeMicroLamports }));
+            transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
+            transaction.add(list_instruction);
+            console.log("✅ [COLLECTION CREATION] Transaction built successfully");
+
+            console.log("🔵 [COLLECTION CREATION] Partially signing with token keypair...");
+            console.log("🔵 [COLLECTION CREATION] Token keypair public key:", newCollectionData.current.token_keypair.publicKey.toString());
+            transaction.partialSign(newCollectionData.current.token_keypair);
+            console.log("✅ [COLLECTION CREATION] Transaction partially signed");
+
+            console.log("🔵 [COLLECTION CREATION] Requesting wallet signature...");
+            console.log("🔵 [COLLECTION CREATION] Transaction summary:");
+            console.log("🔵 [COLLECTION CREATION] - Instructions count:", transaction.instructions.length);
+            console.log("🔵 [COLLECTION CREATION] - Fee payer:", transaction.feePayer?.toString());
+            console.log("🔵 [COLLECTION CREATION] - Recent blockhash:", transaction.recentBlockhash);
+
             let signed_transaction = await wallet.signTransaction(transaction);
-            var signature = await connection.sendRawTransaction(signed_transaction.serialize(), { skipPreflight: true });
+            console.log("✅ [COLLECTION CREATION] Transaction signed by wallet successfully");
+
+            console.log("🔵 [COLLECTION CREATION] Serializing transaction...");
+            const serializedTransaction = signed_transaction.serialize();
+            console.log("✅ [COLLECTION CREATION] Transaction serialized, size:", serializedTransaction.length, "bytes");
+
+            console.log("🔵 [COLLECTION CREATION] Sending transaction to network...");
+            var signature = await connection.sendRawTransaction(serializedTransaction, { skipPreflight: true });
+            console.log("✅ [COLLECTION CREATION] Transaction sent, signature:", signature);
 
             if (signature === undefined) {
-                console.log(signature);
+                console.error("❌ [COLLECTION CREATION] Transaction signature is undefined");
                 toast.error("Transaction failed, please try again");
                 return;
             }
@@ -702,23 +526,31 @@ const CollectionPage = ({ setScreen }: CollectionPageProps) => {
             signature_ws_id.current = 1;
 
             if (DEBUG) {
-                console.log("list signature: ", signature);
+                console.log("🔵 [COLLECTION CREATION] Debug - list signature:", signature);
             }
 
+            console.log("🔵 [COLLECTION CREATION] Setting up signature confirmation listener...");
             connection.onSignature(signature, check_signature_update, "confirmed");
             setTimeout(transaction_failed, 20000);
+            console.log("✅ [COLLECTION CREATION] Signature listener and timeout set");
         } catch (error) {
-            console.log(error);
+            console.error("❌ [COLLECTION CREATION] Critical error during transaction:", {
+                error: error.message,
+                stack: error.stack,
+                name: error.name,
+                cause: error.cause,
+                code: error.code,
+            });
             setIsLoading(false);
             toast.update(createLaunch, {
-                render: "We couldn't create your launch accounts. Please try again.",
+                render: "We couldn't create your launch accounts. Error: " + error.message,
                 type: "error",
                 isLoading: false,
                 autoClose: 3000,
             });
             return;
         }
-    }, [wallet, newCollectionData, EditCollection, check_signature_update, transaction_failed, getIrysUploader]);
+    }, [wallet, newCollectionData, EditCollection, check_signature_update, transaction_failed, uploadFiles]);
 
     return (
         <form className="mx-auto flex w-full flex-col items-center justify-center bg-[#161616] bg-opacity-75 bg-clip-padding px-6 py-6 shadow-2xl backdrop-blur-sm backdrop-filter md:!w-fit md:rounded-xl md:border-t-[3px] md:border-orange-700 md:px-12 md:py-8 lg:!w-[975px]">

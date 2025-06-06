@@ -28,9 +28,9 @@ import { toast } from "react-toastify";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
 import useSendTransaction from "../useSendTransaction";
 import { getMintData } from "@/components/amm/launch";
-import { CollectionData } from "@letscook/sdk/dist/state/collections";
+import { CollectionData2 } from "../../components/collection/collectionState";
 
-const useMintNFT = (launchData: CollectionData, updateData: boolean = false) => {
+const useMintNFT = (launchData: CollectionData2, updateData: boolean = false) => {
     const wallet = useWallet();
     const { sendTransaction, isLoading } = useSendTransaction();
 

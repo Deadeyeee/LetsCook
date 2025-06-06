@@ -15,6 +15,30 @@ const MarketMaker = () => {
     const [selectedSubTab, setSelectedSubTab] = useState("Open");
     const { launchList } = useAppRoot();
 
+    // TEMPORARILY DISABLED FOR PERFORMANCE
+    return (
+        <>
+            <Head>
+                <title>Let&apos;s Cook | Trade</title>
+            </Head>
+            <main className="md:p-8">
+                <div className="mb-4 flex flex-col gap-4 lg:gap-0" style={{ marginTop: sm ? 16 : 0 }}>
+                    <Text className="block text-center text-3xl font-semibold text-white lg:text-4xl" align={"center"}>
+                        Trade
+                    </Text>
+                    <Text className="mt-4 block text-center text-lg text-white/70" align={"center"}>
+                        This page is temporarily disabled for performance optimization.
+                    </Text>
+                    <Text className="block text-center text-lg text-white/70" align={"center"}>
+                        You can still create new tokens via the &quot;New Token&quot; page.
+                    </Text>
+                </div>
+            </main>
+        </>
+    );
+
+    // ORIGINAL CODE - DISABLED FOR PERFORMANCE
+    /*
     const handleClick = (tab: string) => {
         setSelected(tab);
     };
@@ -52,7 +76,6 @@ const MarketMaker = () => {
                     </Text>
 
                     <HStack align="center" spacing={0} zIndex={99} w="100%" mt={xs ? 1 : -2}>
-                        {/* add rewards  */}
                         {["Markets", "Rewards"].map((name, i) => {
                             const isActive = selected === name;
 
@@ -179,6 +202,7 @@ const MarketMaker = () => {
             </main>
         </>
     );
+    */
 };
 
 export default MarketMaker;

@@ -1,4 +1,4 @@
-import { getStore } from "@netlify/blobs";
+// Netlify blobs import removed
 
 interface Entry {
     validated: boolean;

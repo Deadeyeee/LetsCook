@@ -24,7 +24,7 @@ export const useSOLPrice = () => {
         if (have_price.current || lastDBUpdate.current > 0) return;
 
         const entry = await fetchFromFirebase(Config.NETWORK + "/prices/" + Config.token);
-        
+
         if (entry === null) {
             return;
         }
@@ -56,15 +56,7 @@ export const useSOLPrice = () => {
             setError(null);
             have_price.current = true;
 
-            if (new Date().getTime() - lastDBUpdate.current > 60 * 60 * 1000) {
-                await fetch("/.netlify/functions/updateSolPrice", {
-                    method: "POST",
-                    body: JSON.stringify({}),
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                });
-            }
+            // Price update functionality removed
 
             return true; // Indicate successful fetch
         } catch (error) {

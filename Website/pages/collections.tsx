@@ -14,19 +14,6 @@ import { CollectionData } from "@letscook/sdk/dist/state/collections";
 
 const BagsPage = () => {
     const { xs, sm, lg } = useResponsive();
-    const { collectionList } = useAppRoot();
-
-    if (!collectionList) return <Loader />;
-
-    function filterTable() {
-        let filtered: CollectionData[] = [];
-        collectionList.forEach((item) => {
-            if (item.description !== "") {
-                filtered.push(item);
-            }
-        });
-        return filtered;
-    }
 
     return (
         <>
@@ -40,7 +27,7 @@ const BagsPage = () => {
                     </Text>
                 </div>
 
-                <CollectionDashboardTable collectionList={filterTable()} />
+                <CollectionDashboardTable />
             </main>
         </>
     );

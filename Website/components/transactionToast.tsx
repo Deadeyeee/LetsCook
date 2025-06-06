@@ -1,15 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Box, VStack, Text, Progress, keyframes, Flex } from "@chakra-ui/react";
+import { Box, VStack, Text, Progress, Flex } from "@chakra-ui/react";
 import { toast, ToastContent, ToastOptions } from "react-toastify";
 import { FaSpinner, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 
 const stages = ["Signing", "Sending", "Confirmed"];
-
-// Define the spin animation
-const spinAnimation = keyframes`
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-`;
 
 const TransactionToast: React.FC<{
     transactionStatus: string;
@@ -41,7 +35,7 @@ const TransactionToast: React.FC<{
                         ) : currentStage === stages.length - 1 ? (
                             <FaCheckCircle color="green" size="24px" />
                         ) : (
-                            <Box as={FaSpinner} animation={`${spinAnimation} 1s linear infinite`} size="24px" />
+                            <Box as={FaSpinner} size="24px" />
                         )}
                     </Box>
                     <Text m={0} fontWeight="bold" fontSize="md">

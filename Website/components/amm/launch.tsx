@@ -23,7 +23,7 @@ import { toast } from "react-toastify";
 import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import useResponsive from "../../hooks/useResponsive";
 import { MintData } from "../Solana/state";
-import { Config, Extensions, METAPLEX_META, NetworkConfig, WRAPPED_SOL } from "../Solana/constants";
+import { BITZ, Config, Extensions, METAPLEX_META, NetworkConfig, WRAPPED_SOL } from "../Solana/constants";
 import ShowExtensions from "../Solana/extensions";
 import { fetchWithTimeout } from "../../utils/fetchWithTimeout";
 import { useConnection } from "@solana/wallet-adapter-react";
@@ -95,6 +95,20 @@ export async function getMintDataWithMint(connection: Connection, mint: Mint, to
         };
         return mint_data;
     }
+
+    if (mint.address.equals(BITZ)) {
+        let mint_data: MintData = {
+            mint: mint,
+            uri: "",
+            name: "BITZ",
+            symbol: "BITZ",
+            icon: "/bitz.jpg",
+            extensions: 0,
+            token_program: token_program,
+        };
+        return mint_data;
+    }
+
     let uri: string | null = null;
     let metadata_pointer = null;
     let name: string;

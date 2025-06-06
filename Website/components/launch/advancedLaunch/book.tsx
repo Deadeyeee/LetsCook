@@ -34,7 +34,7 @@ import {
     Switch,
 } from "@chakra-ui/react";
 import { useMediaQuery } from "react-responsive";
-import { WebIrys } from "@irys/sdk";
+// import { WebIrys } from "@irys/sdk"; // Removed old SDK
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
     Keypair,

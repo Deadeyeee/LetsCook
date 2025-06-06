@@ -8,10 +8,10 @@ import { AssetV1, deserializeAssetV1 } from "@metaplex-foundation/mpl-core";
 import type { RpcAccount, PublicKey as umiKey } from "@metaplex-foundation/umi";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { publicKey } from "@metaplex-foundation/umi";
-import { CollectionData } from "@letscook/sdk/dist/state/collections";
+import { CollectionData2 } from "../../components/collection/collectionState";
 
 interface UseAssignmentDataProps {
-    collection: CollectionData | null;
+    collection: CollectionData2 | null;
 }
 
 const useAssignmentData = (props: UseAssignmentDataProps | null) => {

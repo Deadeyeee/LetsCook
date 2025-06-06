@@ -24,13 +24,7 @@ import { toast } from "react-toastify";
 
 import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import useResponsive from "../../hooks/useResponsive";
-import {
-    MintData,
-    getRecentPrioritizationFees,
-    get_current_blockhash,
-    request_current_balance,
-    send_transaction,
-} from "../Solana/state";
+import { MintData, getRecentPrioritizationFees, get_current_blockhash, request_current_balance, send_transaction } from "../Solana/state";
 import { Config, Extensions, METAPLEX_META, NetworkConfig, PROGRAM, Socials } from "../Solana/constants";
 import ShowExtensions from "../Solana/extensions";
 import { getMintData } from "../amm/launch";
@@ -214,17 +208,9 @@ const CreateListing = () => {
     }, [wallet]);
 
     const post_discord = async (listing: NewListing) => {
-        const response = await fetch("/.netlify/functions/post_discord", {
-            method: "POST",
-            body: JSON.stringify(listing),
-            headers: {
-                "Content-Type": "application/json",
-            },
-        });
-
-        const result = await response.json();
-        console.log(result);
-        return result.body;
+        // Discord posting functionality removed
+        console.log("Discord posting disabled");
+        return "Discord posting disabled";
     };
 
     async function sendRequestData(e, accept: boolean): Promise<void> {

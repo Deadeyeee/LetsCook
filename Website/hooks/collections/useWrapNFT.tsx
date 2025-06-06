@@ -5,9 +5,9 @@ import { toast } from "react-toastify";
 import { getMintData } from "@/components/amm/launch";
 import useSendTransaction from "../useSendTransaction";
 import { GetWrapNFTInstruction } from "@letscook/sdk/dist/instructions/collections/WrapNFT";
-import { CollectionData } from "@letscook/sdk";
+import { CollectionData2 } from "../../components/collection/collectionState";
 
-const useWrapNFT = (launchData: CollectionData) => {
+const useWrapNFT = (launchData: CollectionData2) => {
     const wallet = useWallet();
     const { connection } = useConnection();
     const { sendTransaction, isLoading } = useSendTransaction();

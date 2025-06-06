@@ -7,26 +7,26 @@ import { redirect } from "next/navigation";
 import router from "next/router";
 
 const Home = () => {
-    const { launchList, selectedNetwork } = useAppRoot();
-    const hasVisited = sessionStorage.getItem("hasVisitedHome");
+    // const { launchList, selectedNetwork } = useAppRoot();
+    // const hasVisited = sessionStorage.getItem("hasVisitedHome");
 
-    if (selectedNetwork === "mainnet") {
-        if (!hasVisited && router.pathname === "/") {
-            if (launchList?.size >= 0) {
-                sessionStorage.setItem("hasVisitedHome", "true");
-                router.push("/calendar");
-            }
-        }
-    }
+    // if (selectedNetwork === "mainnet") {
+    //     if (!hasVisited && router.pathname === "/") {
+    //         if (launchList?.size >= 0) {
+    //             sessionStorage.setItem("hasVisitedHome", "true");
+    //             router.push("/calendar");
+    //         }
+    //     }
+    // }
     return (
         <>
             <Head>
                 <title>Let&apos;s Cook</title>
             </Head>
 
-            <main className="flex flex-col gap-8 mt-8 md:gap-10 md:p-8">
+            <main className="mt-8 flex flex-col gap-8 md:gap-10 md:p-8">
                 <QuickLaunchBanner />
-                <MarketMakingTable />
+                {/* <MarketMakingTable /> */}
             </main>
         </>
     );

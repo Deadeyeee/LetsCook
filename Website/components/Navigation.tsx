@@ -241,6 +241,7 @@ function Navigation() {
                         </Text>
                     </div>
 
+                    {/* Temporarily disabled for performance
                     <Link href={isHomePageOnly ? "#" : "/collections"} onClick={onToggle}>
                         <Text color="white" className="font-face-kg" fontSize={24} style={{ opacity: isHomePageOnly ? 0.5 : 1 }}>
                             Collections
@@ -252,6 +253,7 @@ function Navigation() {
                             Trade
                         </Text>
                     </Link>
+                    */}
 
                     <Link href={isHomePageOnly ? "#" : "/calendar"} onClick={onToggle}>
                         <Text color="white" className="font-face-kg" fontSize={24} style={{ opacity: isHomePageOnly ? 0.5 : 1 }}>
