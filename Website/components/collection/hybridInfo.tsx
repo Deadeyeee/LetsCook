@@ -142,7 +142,7 @@ const HybridInfo = ({ setScreen }: HybridInfoProps) => {
         if (result.owner.equals(TOKEN_PROGRAM_ID)) {
             try {
                 mint = unpackMint(token_key, result, TOKEN_PROGRAM_ID);
-                console.log(mint);
+                console.log("Hybrid InfoToken Program", mint);
             } catch (error) {
                 toast.update(searchToken, {
                     render: `Error loading token`,
@@ -155,7 +155,7 @@ const HybridInfo = ({ setScreen }: HybridInfoProps) => {
         } else {
             try {
                 mint = unpackMint(token_key, result, TOKEN_2022_PROGRAM_ID);
-                console.log(mint);
+                console.log("Hybrid Info Token 2022 Program", mint);
             } catch (error) {
                 toast.update(searchToken, {
                     render: `Token is not using Token2022 program`,

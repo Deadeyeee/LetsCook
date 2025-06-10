@@ -123,6 +123,8 @@ const ContextProviders = ({ children }: PropsWithChildren) => {
 
             if (event_data[0] === 8) {
                 setCollectionData((currentData) => {
+                    console.log("Collection Event Data from context", event_data);
+
                     const [collection] = CollectionData.struct.deserialize(event_data);
                     console.log("collection update", collection);
                     const newData = new Map(currentData);
@@ -152,7 +154,11 @@ const ContextProviders = ({ children }: PropsWithChildren) => {
             let data = program_data[i].data;
 
             if (data[0] === 8) {
+                console.log("Collection Data from context", data);
+
                 const [collection] = CollectionData.struct.deserialize(data);
+                console.log("deserialized collection from context", collection);
+
                 collections.set(collection.page_name, collection);
                 continue;
             }

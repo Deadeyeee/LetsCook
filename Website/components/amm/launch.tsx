@@ -56,7 +56,7 @@ export async function getMint(connection: Connection, mint_string: string): Prom
     if (result?.owner.equals(TOKEN_PROGRAM_ID)) {
         try {
             mint = unpackMint(mint_address, result, TOKEN_PROGRAM_ID);
-            console.log(mint);
+            console.log("Launch AMM Token Program", mint);
         } catch (error) {
             toast.error("Error loading spl token", {
                 type: "error",
@@ -68,7 +68,7 @@ export async function getMint(connection: Connection, mint_string: string): Prom
     } else {
         try {
             mint = unpackMint(mint_address, result, TOKEN_2022_PROGRAM_ID);
-            console.log(mint);
+            console.log("Launch AMM Token 2022 Program", mint);
         } catch (error) {
             toast.error("Error loading token22", {
                 type: "error",
@@ -148,12 +148,12 @@ export async function getMintDataWithMint(connection: Connection, mint: Mint, to
             return mint_data;
         }
 
-        let meta_data = Metadata.deserialize(raw_meta_data.data);
-        //console.log(meta_data);
-        //console.log(meta_data[0].data.symbol, meta_data[0].data.name);
-        uri = meta_data[0].data.uri;
-        name = meta_data[0].data.name;
-        symbol = meta_data[0].data.symbol;
+        // let meta_data = Metadata.deserialize(raw_meta_data.data);
+        // //console.log(meta_data);
+        // //console.log(meta_data[0].data.symbol, meta_data[0].data.name);
+        // uri = meta_data[0].data.uri;
+        // name = meta_data[0].data.name;
+        // symbol = meta_data[0].data.symbol;
     }
 
     // check the extensions we care about
